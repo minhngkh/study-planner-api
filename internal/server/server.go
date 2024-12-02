@@ -11,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
 
+	"study-planner-api/internal/auth/provider"
 	"study-planner-api/internal/db"
 	"study-planner-api/internal/logger"
 	"study-planner-api/internal/route"
@@ -20,6 +21,7 @@ import (
 func NewEchoHandler() *echo.Echo {
 	// db connection
 	db.Get()
+	provider.Init()
 
 	e := echo.New()
 
@@ -27,6 +29,11 @@ func NewEchoHandler() *echo.Echo {
 
 	e.Use(logger.LogWithZerolog())
 	e.Use(echoMiddleware.Recover())
+
+	e.Use(echoMiddleware.CORSWithConfig(echoMiddleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
+	}))
 
 	rootGroup := e.Group("")
 	route.RegisterRootRoutes(rootGroup)

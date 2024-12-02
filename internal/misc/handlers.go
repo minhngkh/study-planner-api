@@ -26,3 +26,12 @@ func TestHandler(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, test)
 }
+
+func TestAuthHandler(c echo.Context) error {
+	return c.HTML(http.StatusOK, `
+		<h1>Login Page</h1>
+		<p><a href='/auth/google'>Login with Google</a></p>
+		<p><a href='/auth/facebook'>Login with Facebook</a></p>
+		<p><a href='/auth/apple'>Login with Apple</a></p>
+	`)
+}

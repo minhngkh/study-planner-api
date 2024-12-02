@@ -2,6 +2,7 @@ package route
 
 import (
 	"study-planner-api/internal/auth"
+	"study-planner-api/internal/auth/provider"
 	"study-planner-api/internal/misc"
 	"study-planner-api/internal/user"
 
@@ -17,4 +18,8 @@ func RegisterRootRoutes(e *echo.Group) {
 	e.POST("/refresh", auth.RefreshJwtTokensHandler)
 
 	e.GET("/profile", user.ProfileHandler, auth.JwtMiddleware())
+
+	e.GET("/auth/:provider", provider.AuthInitHandler)
+	e.GET("/auth/:provider/callback", provider.AuthCallbackHandler)
+	e.GET("/auth/test", misc.TestAuthHandler)
 }

@@ -9,8 +9,8 @@ import (
 )
 
 type registerRequest struct {
-	Email    string `form:"email" validate:"required,email"`
-	Password string `form:"password" validate:"required,min=6"`
+	Email    string `form:"email" json:"email" validate:"required,email"`
+	Password string `form:"password" json:"password" validate:"required,min=6"`
 }
 
 func RegisterHandler(c echo.Context) error {
@@ -45,8 +45,8 @@ func RegisterHandler(c echo.Context) error {
 }
 
 type loginRequest struct {
-	Email    string `form:"email" validate:"required,email"`
-	Password string `form:"password" validate:"required"`
+	Email    string `form:"email" json:"email" validate:"required,email"`
+	Password string `form:"password" json:"password" validate:"required"`
 }
 
 func LoginHandler(c echo.Context) error {
