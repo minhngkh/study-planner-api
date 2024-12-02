@@ -21,3 +21,16 @@ func GetUserInfo(id int32) (UserInfo, error) {
 
 	return info, nil
 }
+
+func GetUserInfoByGoogleID(googleID string) (UserInfo, error) {
+	var info UserInfo
+	result := db.Get().
+		Model(&model.User{}).
+		Where("google_id = ?", googleID).
+		First(&info)
+	if result.Error != nil {
+		return UserInfo{}, result.Error
+	}
+
+	return info, nil
+}

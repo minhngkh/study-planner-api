@@ -37,10 +37,12 @@ func RegisterHandler(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	setJwtTokenInCookie(c, tokens)
+	SetJwtTokenInCookie(c, tokens)
 
 	return c.JSON(http.StatusCreated, map[string]string{
-		"message": "User successfully registered",
+		"message":       "User successfully registered",
+		"access_token":  tokens.AccessToken.Value,
+		"refresh_token": tokens.RefreshToken.Value,
 	})
 }
 
@@ -76,15 +78,17 @@ func LoginHandler(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	setJwtTokenInCookie(c, tokens)
+	SetJwtTokenInCookie(c, tokens)
 
 	return c.JSON(http.StatusOK, map[string]string{
-		"message": "Login successful",
+		"message":       "Login successful",
+		"access_token":  tokens.AccessToken.Value,
+		"refresh_token": tokens.RefreshToken.Value,
 	})
 }
 
 type refreshTokenRequest struct {
-	RefreshToken string `json:"refreshToken"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 func RefreshJwtTokensHandler(c echo.Context) error {
@@ -125,14 +129,48 @@ func RefreshJwtTokensHandler(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	setJwtTokenInCookie(c, newTokens)
+	SetJwtTokenInCookie(c, newTokens)
 
 	return c.JSON(http.StatusOK, map[string]string{
-		"message": "Tokens refreshed",
+		"message":       "Tokens refreshed",
+		"access_token":  newTokens.AccessToken.Value,
+		"refresh_token": newTokens.RefreshToken.Value,
 	})
 }
 
-func setJwtTokenInCookie(c echo.Context, tokens JwtAuthTokens) {
+type RemoveSessionRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+func RemoveSessionHandler(c echo.Context) error {
+	var refreshToken string
+
+	var req RemoveSessionRequest
+	httpErr := validator.BindAndValidateRequest(c, &req)
+	if httpErr == nil {
+		refreshToken = req.RefreshToken
+	} else {
+		tokenInCookie, err := c.Cookie("refresh-token")
+		if err != nil {
+			return echo.NewHTTPError(http.StatusUnauthorized)
+		}
+
+		refreshToken = tokenInCookie.Value
+	}
+
+	claims, err := ParseRefreshToken(refreshToken)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized)
+	}
+
+	if err := RemoveSession(claims.UserID, refreshToken); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, "Session removed")
+}
+
+func SetJwtTokenInCookie(c echo.Context, tokens JwtAuthTokens) {
 	c.SetCookie(&http.Cookie{
 		Name:    "access-token",
 		Value:   tokens.AccessToken.Value,

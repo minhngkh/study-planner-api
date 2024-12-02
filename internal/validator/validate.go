@@ -8,7 +8,7 @@ import (
 
 func BindAndValidateRequest[T any](c echo.Context, req *T) *echo.HTTPError {
 	if err := c.Bind(req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "Invalid payload")
+		return echo.NewHTTPError(http.StatusBadRequest)
 	}
 
 	if err := c.Validate(req); err != nil {

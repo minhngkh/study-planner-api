@@ -46,3 +46,14 @@ func verifySession(userID int32, refreshToken string) error {
 
 	return nil
 }
+
+func RemoveSession(userID int32, refreshToken string) error {
+	result := db.Get().
+		Where("user_id = ? AND refresh_token = ?", userID, refreshToken).
+		Delete(&model.UserSession{})
+	if result.Error != nil {
+		return result.Error
+	}
+
+	return nil
+}

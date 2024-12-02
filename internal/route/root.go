@@ -1,6 +1,7 @@
 package route
 
 import (
+	"net/http"
 	"study-planner-api/internal/auth"
 	"study-planner-api/internal/auth/provider"
 	"study-planner-api/internal/misc"
@@ -15,11 +16,12 @@ func RegisterRootRoutes(e *echo.Group) {
 
 	e.POST("/register", auth.RegisterHandler)
 	e.POST("/login", auth.LoginHandler)
-	e.POST("/refresh", auth.RefreshJwtTokensHandler)
 
 	e.GET("/profile", user.ProfileHandler, auth.JwtMiddleware())
 
-	e.GET("/auth/:provider", provider.AuthInitHandler)
-	e.GET("/auth/:provider/callback", provider.AuthCallbackHandler)
-	e.GET("/auth/test", misc.TestAuthHandler)
+	e.POST("/auth/google", provider.GoogleAuthHandler)
+	e.POST("/auth/refresh-token", auth.RefreshJwtTokensHandler)
+	e.GET("/auth/me", func(c echo.Context) error {
+		return c.NoContent(http.StatusOK)
+	}, auth.JwtMiddleware())
 }
