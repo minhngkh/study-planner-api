@@ -96,7 +96,10 @@ func GoogleAuthHandler(c echo.Context) error {
 	}
 	auth.SetJwtTokenInCookie(c, tokens)
 
-	return c.JSON(http.StatusOK, "Login via Google successful")
+	return c.JSON(http.StatusOK, map[string]string{
+		"access_token":  tokens.AccessToken.Value,
+		"refresh_token": tokens.RefreshToken.Value,
+	})
 }
 
 // Link Google account to existing user, if not, creating an empty one
