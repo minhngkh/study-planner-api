@@ -14,7 +14,10 @@ type UserInfo struct {
 
 func GetUserInfo(id int32) (UserInfo, error) {
 	var info UserInfo
-	result := db.Get().Model(&model.User{ID: id}).First(&info)
+	result := db.Get().
+		Model(&model.User{ID: id}).
+		Where("id = ?", id).
+		First(&info)
 	if result.Error != nil {
 		return UserInfo{}, result.Error
 	}
