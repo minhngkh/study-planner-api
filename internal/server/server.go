@@ -29,8 +29,9 @@ func NewEchoHandler() *echo.Echo {
 	e.Use(echoMiddleware.Recover())
 
 	e.Use(echoMiddleware.CORSWithConfig(echoMiddleware.CORSConfig{
-		AllowOrigins: []string{"*"},
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowCredentials: true,
 	}))
 
 	rootGroup := e.Group("")
