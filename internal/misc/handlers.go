@@ -35,3 +35,7 @@ func TestAuthHandler(c echo.Context) error {
 		<p><a href='/auth/apple'>Login with Apple</a></p>
 	`)
 }
+
+func EmptyHandler(c echo.Context) error {
+	return c.NoContent(http.StatusOK)
+}
