@@ -1,0 +1,423 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Study Planer API
+servers:
+  - url: http://localhost:4000
+tags:
+  - name: auth
+    description: Authentication operations
+  - name: user
+    description: User operations
+  - name: tasks
+    description: Task management operations
+paths:
+  /login:
+    post:
+      tags:
+        - auth
+      summary: Login to the system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: LoginInfo
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: login response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '400':
+          description: Invalid email/password supplied
+  /register:
+    post:
+      tags:
+        - auth
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: RegisterInfo
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+              required:
+                - email
+                - password
+      responses:
+        '201':
+          description: registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '400':
+          description: Registration validation errors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterError'
+              example:
+                type: DuplicateEmail
+                message: Email already exists
+  /profile:
+    get:
+      tags:
+        - user
+      summary: Get user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /auth/refresh-token:
+    post:
+      tags:
+        - auth
+      summary: Get new access and refresh tokens using refresh token
+      description: |
+        This endpoint accepts the refresh token from either the request body or cookie.
+        If both are present, the request body takes precedence.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              title: RefreshTokenRequest
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+      parameters:
+        - in: cookie
+          name: refresh_token
+          schema:
+            type: string
+          description: Refresh token stored in cookie
+      responses:
+        '200':
+          description: New tokens generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '401':
+          description: Invalid or expired refresh token
+        '403':
+          description: Token is valid but was not created by this system
+  /auth/google:
+    post:
+      tags:
+        - auth
+      summary: Authenticate with Google OAuth2 code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: GoogleAuthRequest
+              type: object
+              properties:
+                code:
+                  type: string
+                  description: Google OAuth authorization code
+              required:
+                - code
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '400':
+          description: Invalid or expired authorization code
+  /logout:
+    post:
+      tags:
+        - auth
+      summary: Logout and invalidate refresh token
+      description: |
+        This endpoint accepts the refresh token from either the request body or cookie.
+        If both are present, the request body takes precedence.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              title: LogoutRequest
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+      parameters:
+        - in: cookie
+          name: refresh_token
+          schema:
+            type: string
+          description: Refresh token stored in cookie
+      responses:
+        '200':
+          description: Successfully logged out
+        '401':
+          description: Invalid or expired refresh token
+  /tasks:
+    get:
+      tags:
+        - tasks
+      summary: Get list of user's tasks
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - tasks
+      summary: Create a new task
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefaultResponse'
+  /tasks/{id}:
+    put:
+      tags:
+        - tasks
+      summary: Update an existing task
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            x-go-type: int32
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskRequest'
+      responses:
+        '200':
+          description: Task updated successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefaultResponse'
+    delete:
+      tags:
+        - tasks
+      summary: Delete a task
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            x-go-type: int32
+      responses:
+        '204':
+          description: Task deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefaultResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    NotFound:
+      description: Endpoint not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DefaultResponse'
+    Unauthorized:
+      description: Access token is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DefaultResponse'
+  schemas:
+    AuthTokens:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+    DefaultResponse:
+      type: object
+      properties:
+        message:
+          type: string
+    RegisterError:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: 
+            - DuplicateEmail
+            - InvalidEmail
+            - InvalidPassword
+        message:
+          type: string
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          x-go-type: int32
+          x-go-name: ID
+        email:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    Task:
+      type: object
+      properties:
+        id:
+          type: integer
+          x-go-type: int32
+        user_id:
+          type: integer
+          x-go-type: int32
+        name:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          # enum: [low, medium, high]
+        estimated_time:
+          type: integer
+          x-go-type: int32
+          description: Estimated time in minutes
+        status:
+          type: string
+          # enum: [todo, in_progress, done]
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateTaskRequest:
+      type: object
+      required:
+        - name
+        - priority
+        - status
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          # enum: [low, medium, high]
+        estimated_time:
+          type: integer
+          x-go-type: int32
+          description: Estimated time in minutes
+        status:
+          type: string
+          # enum: [todo, in_progress, done]
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+    UpdateTaskRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          # enum: [low, medium, high]
+        estimated_time:
+          type: integer
+          x-go-type: int32
+          description: Estimated time in minutes
+        status:
+          type: string
+          # enum: [todo, in_progress, done]
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
