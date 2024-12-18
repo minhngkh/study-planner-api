@@ -1,58 +1,58 @@
-# Simple Makefile for a Go project
+binary_name = main
+lambda_name = lambda
 
-# Build the application
+
+## all: build & test the application
 all: build test
 
-build:
+build: 
 	@echo "Building..."
 	
 	
 	@go build -o main cmd/server/main.go
 
-# Run the application
+## run: run the application
 run:
 	@go run cmd/server/main.go
 
-# Generate models from the database
-gen-models:
-	@go run cmd/genmodels/main.go
+## gen
+gen:
+	@go generate ./...
 
-gen-api:
+## gen/models: generate model schemas using gorm-gen
+gen/models:
+	@go generate ./internal/model
+
+## gen/api: generate api files using oapi-codegen
+gen/api:
 	@go generate ./internal/api
 
-# Test the application
+## test: run tests
 test:
 	@echo "Testing..."
 	@go test ./... -v
 
-# Clean the binary
+## clean
 clean:
 	@echo "Cleaning..."
-	@rm -f main
+	@rm -rf  tmp $(binary_name) $(lambda_name).zip
 
-# Live Reload
+## watch: run the application with air
 watch:
-	@if command -v air > /dev/null; then \
-			air; \
-			echo "Watching...";\
-		else \
-			read -p "Go's 'air' is not installed on your machine. Do you want to install it? [Y/n] " choice; \
-			if [ "$$choice" != "n" ] && [ "$$choice" != "N" ]; then \
-				go install github.com/air-verse/air@latest; \
-				air; \
-				echo "Watching...";\
-			else \
-				echo "You chose not to install air. Exiting..."; \
-				exit 1; \
-			fi; \
-		fi
+	@go run github.com/air-verse/air
 
-# Build the lambda
-build-lambda:
+## build/lambda: build binary for aws lambda
+build/lambda:
 	@echo "Building Lambda..."
 	@GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o bootstrap -tags lambda.norpc cmd/lambda/lambda.go
 	@zip lambda.zip bootstrap .env
 	@rm bootstrap
+
+
+## help: print this help message
+help:
+	@echo 'Usage:'
+	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' |  sed -e 's/^/ /'
 
 
 .PHONY: all build run test clean watch build-lambda gen-models gen-api

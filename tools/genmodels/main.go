@@ -12,7 +12,7 @@ func main() {
 	db := db.Instance().DB
 
 	g := gen.NewGenerator(gen.Config{
-		ModelPkgPath: "internal/model",
+		// ModelPkgPath: "internal/model",
 	})
 
 	g.WithTableNameStrategy(func(tableName string) string {
