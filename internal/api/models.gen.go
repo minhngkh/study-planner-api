@@ -91,10 +91,13 @@ type User struct {
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = DefaultResponse
 
-// PostAuthGoogleJSONBody defines parameters for PostAuthGoogle.
-type PostAuthGoogleJSONBody struct {
-	// Code Google OAuth authorization code
-	Code string `json:"code"`
+// GetAuthGoogleCallbackParams defines parameters for GetAuthGoogleCallback.
+type GetAuthGoogleCallbackParams struct {
+	// Code Authorization code from Google
+	Code string `form:"code" json:"code"`
+
+	// State State parameter for CSRF protection
+	State *string `form:"state,omitempty" json:"state,omitempty"`
 }
 
 // PostAuthRefreshTokenJSONBody defines parameters for PostAuthRefreshToken.
@@ -130,9 +133,6 @@ type PostRegisterJSONBody struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
-
-// PostAuthGoogleJSONRequestBody defines body for PostAuthGoogle for application/json ContentType.
-type PostAuthGoogleJSONRequestBody PostAuthGoogleJSONBody
 
 // PostAuthRefreshTokenJSONRequestBody defines body for PostAuthRefreshToken for application/json ContentType.
 type PostAuthRefreshTokenJSONRequestBody PostAuthRefreshTokenJSONBody

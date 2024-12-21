@@ -23,9 +23,12 @@ import (
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Authenticate with Google OAuth2 code
-	// (POST /auth/google)
-	PostAuthGoogle(ctx echo.Context) error
+	// Initiate Google OAuth2 login flow
+	// (GET /auth/google/authorize)
+	GetAuthGoogleAuthorize(ctx echo.Context) error
+	// Handle Google OAuth2 callback
+	// (GET /auth/google/callback)
+	GetAuthGoogleCallback(ctx echo.Context, params GetAuthGoogleCallbackParams) error
 	// Get new access and refresh tokens using refresh token
 	// (POST /auth/refresh-token)
 	PostAuthRefreshToken(ctx echo.Context, params PostAuthRefreshTokenParams) error
@@ -60,12 +63,37 @@ type ServerInterfaceWrapper struct {
 	Handler ServerInterface
 }
 
-// PostAuthGoogle converts echo context to params.
-func (w *ServerInterfaceWrapper) PostAuthGoogle(ctx echo.Context) error {
+// GetAuthGoogleAuthorize converts echo context to params.
+func (w *ServerInterfaceWrapper) GetAuthGoogleAuthorize(ctx echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.PostAuthGoogle(ctx)
+	err = w.Handler.GetAuthGoogleAuthorize(ctx)
+	return err
+}
+
+// GetAuthGoogleCallback converts echo context to params.
+func (w *ServerInterfaceWrapper) GetAuthGoogleCallback(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAuthGoogleCallbackParams
+	// ------------- Required query parameter "code" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "code", ctx.QueryParams(), &params.Code)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter code: %s", err))
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "state", ctx.QueryParams(), &params.State)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter state: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetAuthGoogleCallback(ctx, params)
 	return err
 }
 
@@ -104,6 +132,8 @@ func (w *ServerInterfaceWrapper) PostLogin(ctx echo.Context) error {
 // PostLogout converts echo context to params.
 func (w *ServerInterfaceWrapper) PostLogout(ctx echo.Context) error {
 	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params PostLogoutParams
@@ -230,7 +260,8 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
-	router.POST(baseURL+"/auth/google", wrapper.PostAuthGoogle)
+	router.GET(baseURL+"/auth/google/authorize", wrapper.GetAuthGoogleAuthorize)
+	router.GET(baseURL+"/auth/google/callback", wrapper.GetAuthGoogleCallback)
 	router.POST(baseURL+"/auth/refresh-token", wrapper.PostAuthRefreshToken)
 	router.POST(baseURL+"/login", wrapper.PostLogin)
 	router.POST(baseURL+"/logout", wrapper.PostLogout)
@@ -245,29 +276,67 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 type UnauthorizedJSONResponse DefaultResponse
 
-type PostAuthGoogleRequestObject struct {
-	Body *PostAuthGoogleJSONRequestBody
+type GetAuthGoogleAuthorizeRequestObject struct {
 }
 
-type PostAuthGoogleResponseObject interface {
-	VisitPostAuthGoogleResponse(w http.ResponseWriter) error
+type GetAuthGoogleAuthorizeResponseObject interface {
+	VisitGetAuthGoogleAuthorizeResponse(w http.ResponseWriter) error
 }
 
-type PostAuthGoogle200JSONResponse AuthTokens
+type GetAuthGoogleAuthorize303ResponseHeaders struct {
+	Location  string
+	SetCookie string
+}
 
-func (response PostAuthGoogle200JSONResponse) VisitPostAuthGoogleResponse(w http.ResponseWriter) error {
+type GetAuthGoogleAuthorize303Response struct {
+	Headers GetAuthGoogleAuthorize303ResponseHeaders
+}
+
+func (response GetAuthGoogleAuthorize303Response) VisitGetAuthGoogleAuthorizeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
+	w.WriteHeader(303)
+	return nil
+}
+
+type GetAuthGoogleCallbackRequestObject struct {
+	Params GetAuthGoogleCallbackParams
+}
+
+type GetAuthGoogleCallbackResponseObject interface {
+	VisitGetAuthGoogleCallbackResponse(w http.ResponseWriter) error
+}
+
+type GetAuthGoogleCallback200JSONResponse AuthTokens
+
+func (response GetAuthGoogleCallback200JSONResponse) VisitGetAuthGoogleCallbackResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type PostAuthGoogle400Response struct {
+type GetAuthGoogleCallback301ResponseHeaders struct {
+	Location string
 }
 
-func (response PostAuthGoogle400Response) VisitPostAuthGoogleResponse(w http.ResponseWriter) error {
-	w.WriteHeader(400)
+type GetAuthGoogleCallback301Response struct {
+	Headers GetAuthGoogleCallback301ResponseHeaders
+}
+
+func (response GetAuthGoogleCallback301Response) VisitGetAuthGoogleCallbackResponse(w http.ResponseWriter) error {
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.WriteHeader(301)
 	return nil
+}
+
+type GetAuthGoogleCallback400JSONResponse DefaultResponse
+
+func (response GetAuthGoogleCallback400JSONResponse) VisitGetAuthGoogleCallbackResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
 }
 
 type PostAuthRefreshTokenRequestObject struct {
@@ -536,9 +605,12 @@ func (response PutTasksId404JSONResponse) VisitPutTasksIdResponse(w http.Respons
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-	// Authenticate with Google OAuth2 code
-	// (POST /auth/google)
-	PostAuthGoogle(ctx context.Context, request PostAuthGoogleRequestObject) (PostAuthGoogleResponseObject, error)
+	// Initiate Google OAuth2 login flow
+	// (GET /auth/google/authorize)
+	GetAuthGoogleAuthorize(ctx context.Context, request GetAuthGoogleAuthorizeRequestObject) (GetAuthGoogleAuthorizeResponseObject, error)
+	// Handle Google OAuth2 callback
+	// (GET /auth/google/callback)
+	GetAuthGoogleCallback(ctx context.Context, request GetAuthGoogleCallbackRequestObject) (GetAuthGoogleCallbackResponseObject, error)
 	// Get new access and refresh tokens using refresh token
 	// (POST /auth/refresh-token)
 	PostAuthRefreshToken(ctx context.Context, request PostAuthRefreshTokenRequestObject) (PostAuthRefreshTokenResponseObject, error)
@@ -580,29 +652,48 @@ type strictHandler struct {
 	middlewares []StrictMiddlewareFunc
 }
 
-// PostAuthGoogle operation middleware
-func (sh *strictHandler) PostAuthGoogle(ctx echo.Context) error {
-	var request PostAuthGoogleRequestObject
-
-	var body PostAuthGoogleJSONRequestBody
-	if err := ctx.Bind(&body); err != nil {
-		return err
-	}
-	request.Body = &body
+// GetAuthGoogleAuthorize operation middleware
+func (sh *strictHandler) GetAuthGoogleAuthorize(ctx echo.Context) error {
+	var request GetAuthGoogleAuthorizeRequestObject
 
 	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.PostAuthGoogle(ctx.Request().Context(), request.(PostAuthGoogleRequestObject))
+		return sh.ssi.GetAuthGoogleAuthorize(ctx.Request().Context(), request.(GetAuthGoogleAuthorizeRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PostAuthGoogle")
+		handler = middleware(handler, "GetAuthGoogleAuthorize")
 	}
 
 	response, err := handler(ctx, request)
 
 	if err != nil {
 		return err
-	} else if validResponse, ok := response.(PostAuthGoogleResponseObject); ok {
-		return validResponse.VisitPostAuthGoogleResponse(ctx.Response())
+	} else if validResponse, ok := response.(GetAuthGoogleAuthorizeResponseObject); ok {
+		return validResponse.VisitGetAuthGoogleAuthorizeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetAuthGoogleCallback operation middleware
+func (sh *strictHandler) GetAuthGoogleCallback(ctx echo.Context, params GetAuthGoogleCallbackParams) error {
+	var request GetAuthGoogleCallbackRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAuthGoogleCallback(ctx.Request().Context(), request.(GetAuthGoogleCallbackRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAuthGoogleCallback")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetAuthGoogleCallbackResponseObject); ok {
+		return validResponse.VisitGetAuthGoogleCallbackResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
@@ -863,32 +954,36 @@ func (sh *strictHandler) PutTasksId(ctx echo.Context, id int32) error {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"HwAA",
+	"H4sIAAAAAAAC/+xZT2/buBL/KgT7gF6cyE2CdzDwDnlJ280i2A2cBHtog4CWxjIbiVTJURNv4O++GJKS",
+	"JUt27W6abNG9WRLJ+febH2fGjzzWeaEVKLR89MgN2EIrC+7hWokSZ9rIPyGh51grBIX0UxRFJmOBUqvo",
+	"k9WK3tl4BrmgX/8xMOUj/ipaHh75rzY6hakoMxwHQXyxWAx4AjY2sqDj+IgfxzFYy1DfgWLSslxaK1XK",
+	"tGFSfRGZTDhtCieSwOMSZ1e03D0VRhdgUHorhDvt1p1GzzgvgI+4RSNVyhcDbmBqwM7WrlgMqjd68gli",
+	"pD0nBgTClbB3Y/hcgsWu3JZNPWJBJbcoc6CPU21ygXzEE4Gw594OenZYlLlAWO5r++1t9Z3RdyYVy6Uq",
+	"EezyMKkQUjB8wB/2Ur23fHt4QBKU8Od2RBdGaiNx3vvRojC4oy0WBZa239sGPpfSEOY+eI0a8uudNz1R",
+	"WcVWJyY5WCtS2DLIY0ilRTBvjdFml8Oqsx45qDInM05Lny/wNhcy4wN+5oG88nghrL3XJmlYt0lBwl9X",
+	"r9hhM7kVuH04fkSwyqSh6j8f2ANeFsnOgSktmNvtLe1DybUT+y9XfReu6nrbgnmanATHDX1GbMKDdws/",
+	"O90WIGQgxCV57JJuVK/wBIQBQ/fq8uldpfavf1zxcP/SSf7r0oQZYuHvdamm2qkqMaMvl1gmc3aRCQWG",
+	"HV+c8QH/AsZ6SLzZH+4PyTxdgBKF5CN+6F4NeCFw5tSKqCKJUq3TDKK6OqEvKWAXZWNIpIEYLcMZMMol",
+	"hpq9d9tfW5bpVCpWEIk7qcYVNGcJH/H3gGS8X3pcCxq0K6TD4eF6oUtRbUEzEAkYt/9c+xqqe0jY+DuJ",
+	"PmCVpW4xux6fV+4X/ai8BNw70fpO9mTeyeX4XaitYr9k01kujLbMc2HmBCslUQoE1tbP2zfN9D2hQKSW",
+	"7jxSmt/Q/lbUYpFlExHfrQ3aL0IlGfiQVYvZ1Oh8RahQCfN5ZaNMp5ZIpArz5nieVCoQsozIAV08Pqxq",
+	"ctxye6wTaOrBCd98xD+XYKgwCZlHy3iziEFTwsZwrYq9RPJwrRmbasNc1AqjEWK3ql82MdXmeN6sIPhg",
+	"OHyy0r5RhfdU9USMBJQUEoqULV1dPi2zbE5Jfzh8szmVpsbpmLB7iTOXER7FLu4+JbbKrHfVOdfj885Z",
+	"Ld/Bg8iLrGI0O4qie5hYibAf6/xVs6/43/7+/sdyODz4b6uZoNddZne+OXpCv2/RUoX6coVIHKK1YQ42",
+	"1GblAuMZb6e8T8eV3IuXGbQu3YMn9uq2qtC2J9uvZtIyUEmhpUJGTi0CXYcDAle5xAOJM+Jw99XVMmyi",
+	"kznZ4Lls/6M6m7KJpqgaYIUBCwoH3R0o7sDS9xgSUDFt7HDGhbaONMZeEQftr1HGuKW0RW083GuqdWlb",
+	"P4W8bbegX81fZ8f/dTLfCULtimSbrjfc2k37qxKyW0b4zu1FqOU3uK+4IAVFIYSkQzBHfQRT5YU2DB4K",
+	"4us27PzGnkv+qhpO+P2TEtm9sExpDHdSwiZzhgRuO7cI+UpWvQdkCu6ZZxF3l7UEW1a6mUdbm95sc5dv",
+	"M8G6KD53S54KOusL06LqXzfiyWlzRqVhD4pWb86XQ5UvakzNqjVp90PIeSWqPMBsSWpBshJ3ZztdZ8RI",
+	"ARnroqpL/GF589yr/xOypbd8d55cqQEb7FVVTeTQbyeyRp/nItHs8D7ckKtaKNUlOlYKE1cqELbgosLo",
+	"qcyaDVmnDL8IS75jXrsefF0JGlRk1JtSP0ufll7tO7bWM2pNxHfyKPF92RDfcJ/rV7z7TJg4bmbzai75",
+	"4oTeHNRCmGQWzRFmXUB4hb+d8988E+f7AHh/NyoIvnXFXvcMjfkwd1NeJjIDIpkzeJAWG3OuldnwYrCl",
+	"Je3xdI8x46YxIYvpJ9AGu3IxVacx4eqS0ET3pDgKe2c3JfiVW/A301si5PZrHnDz7+VESxgj5n2OOJcW",
+	"mZ4yr/rzJHsWZJIjX9sgeulQ/3xDKbY2z5eO/LYk3+S67h9Yz5yHPnbdWNH7uoTu1vAv0jVLVbSu3u+F",
+	"Gx+UkIGEkB7A1CkYPcpk4QuBDBC6EDp17x2IzpJuJeZKq0LgbFlYyWSbwdXmPyC6A6ajnuKVguz1Xtuo",
+	"7eJk2nT0nMhwBlCzN9Wl2jHKPi5MrIvwgBdlHyOU+CKxfHru6f4htX3f1xOG8LfaT4cj70YmlK8opErX",
+	"coY71nyp4FKaLAw1R1GU6VhkM21xdDQcDjnJCPv7xuGgMDiD1fC0S9S5OqE70XaFd996V2Z01zu35EKJ",
+	"FHJQ2Ls1XOY3i78CAAD///AEKa3EIgAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

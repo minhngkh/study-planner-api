@@ -29,21 +29,19 @@ func (s *Handler) PostRegister(
 		return nil, err
 	}
 
-	tokens, err := auth.NewJwtAuthTokens(auth.AccessTokenCustomClaims{
-		UserID: userId,
-	})
+	accessToken, refreshToken, err := auth.CreateAuthTokens(auth.AuthInfo{UserID: userId})
 	if err != nil {
 		return nil, err
 	}
 
-	err = auth.CreateSession(userId, tokens.RefreshToken)
+	err = auth.CreateSession(userId, refreshToken)
 	if err != nil {
 		return nil, err
 	}
 
 	return api.PostRegister201JSONResponse{
-		AccessToken:  &tokens.AccessToken.Value,
-		RefreshToken: &tokens.RefreshToken.Value,
+		AccessToken:  &accessToken.Value,
+		RefreshToken: &refreshToken.Value,
 	}, nil
 }
 
@@ -69,29 +67,20 @@ func (s *Handler) PostLogin(
 		}
 	}
 
-	tokens, err := auth.NewJwtAuthTokens(auth.AccessTokenCustomClaims{
-		UserID: user.ID,
-	})
+	accessToken, refreshToken, err := auth.CreateAuthTokens(auth.AuthInfo{UserID: user.ID})
 	if err != nil {
 		return nil, err
 	}
 
-	err = auth.CreateSession(user.ID, tokens.RefreshToken)
+	err = auth.CreateSession(user.ID, refreshToken)
 	if err != nil {
 		return nil, err
 	}
 
 	return api.PostLogin200JSONResponse{
-		AccessToken:  &tokens.AccessToken.Value,
-		RefreshToken: &tokens.RefreshToken.Value,
+		AccessToken:  &accessToken.Value,
+		RefreshToken: &refreshToken.Value,
 	}, nil
-}
-
-func (s *Handler) PostAuthGoogle(
-	ctx context.Context,
-	request api.PostAuthGoogleRequestObject,
-) (api.PostAuthGoogleResponseObject, error) {
-	panic("unimplemented")
 }
 
 func (s *Handler) PostAuthRefreshToken(
@@ -112,28 +101,19 @@ func (s *Handler) PostAuthRefreshToken(
 		return api.PostAuthRefreshToken401Response{}, nil
 	}
 
-	claims, err := auth.ParseRefreshToken(refreshToken)
+	info, _, err := auth.ValidateRefreshToken(refreshToken)
 	if err != nil {
 		return api.PostAuthRefreshToken401Response{}, nil
 	}
 
-	// err = auth.VerifySession(claims.UserID, refreshToken)
-	// if err != nil {
-	// 	if errors.Is(err, auth.ErrMaliciousRefreshToken) {
-	// 		return api.PostAuthRefreshToken403Response{}, nil
-	// 	}
-
-	// 	return nil, err
-	// }
-
-	newTokens, err := auth.NewJwtAuthTokens(auth.AccessTokenCustomClaims{
-		UserID: claims.UserID,
+	newAccessToken, newRefreshToken, err := auth.CreateAuthTokens(auth.RefreshInfo{
+		UserID: info.UserID,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	err = auth.UpdateSession(claims.UserID, refreshToken, newTokens.RefreshToken)
+	err = auth.UpdateSession(info.UserID, refreshToken, newRefreshToken)
 	if err != nil {
 		if errors.Is(err, auth.ErrMaliciousRefreshToken) {
 			return api.PostAuthRefreshToken403Response{}, nil
@@ -143,8 +123,8 @@ func (s *Handler) PostAuthRefreshToken(
 	}
 
 	return api.PostAuthRefreshToken200JSONResponse{
-		AccessToken:  &newTokens.AccessToken.Value,
-		RefreshToken: &newTokens.RefreshToken.Value,
+		AccessToken:  &newAccessToken.Value,
+		RefreshToken: &newRefreshToken.Value,
 	}, nil
 }
 
@@ -159,12 +139,12 @@ func (s *Handler) PostLogout(
 		refreshToken = *request.Params.RefreshToken
 	}
 
-	claims, err := auth.ParseRefreshToken(refreshToken)
+	info, _, err := auth.ValidateRefreshToken(refreshToken)
 	if err != nil {
 		return api.PostLogout401Response{}, nil
 	}
 
-	err = auth.RemoveSession(claims.UserID, refreshToken)
+	err = auth.RemoveSession(info.UserID, refreshToken)
 	if err != nil {
 		return api.PostLogout401Response{}, nil
 	}

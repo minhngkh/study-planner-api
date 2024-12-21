@@ -1,170 +1,160 @@
 package auth
 
 import (
-	"os"
-	"sync"
-	"time"
-
-	"github.com/golang-jwt/jwt/v5"
-	_ "github.com/joho/godotenv/autoload"
+	"github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/jwt"
 )
 
-type AccessTokenCustomClaims struct {
-	UserID int32 `json:"id"`
-}
-
-type RefreshTokenCustomClaims struct {
-	UserID int32 `json:"id"`
-}
-
-type AccessTokenClaims struct {
-	AccessTokenCustomClaims
-	jwt.RegisteredClaims
-}
-
-type RefreshTokenClaims struct {
-	RefreshTokenCustomClaims
-	jwt.RegisteredClaims
-}
-
+// Contains the serialized token and the token itself before serialization
 type JwtToken struct {
-	Value     string
-	ExpiresAt time.Time
+	Value string
+	JwtRegisteredClaims
 }
 
-type JwtAuthTokens struct {
-	AccessToken  JwtToken
-	RefreshToken JwtToken
-}
+// TODO: Wrap this to abstract from the library
+type JwtRegisteredClaims = jwt.Claims
+type JwtPrivateClaims = interface{}
 
-var (
-	jwtSecret = os.Getenv("JWT_SECRET")
-
-	AccessTokenDuration  = time.Minute * 15
-	RefreshTokenDuration = time.Hour * 24 * 7
-
-	// AccessTokenDuration  = time.Second * 1
-	// RefreshTokenDuration = time.Second * 1
-)
-
-func NewJwtAuthTokens(info AccessTokenCustomClaims) (JwtAuthTokens, error) {
-	var accessToken, refreshToken JwtToken
-	var accessErr, refreshErr error
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	go func() {
-		defer wg.Done()
-		accessToken, accessErr = newAccessToken(info)
-	}()
-
-	go func() {
-		defer wg.Done()
-		refreshToken, refreshErr = newRefreshToken(RefreshTokenCustomClaims(info))
-	}()
-
-	wg.Wait()
-
-	if accessErr != nil {
-		return JwtAuthTokens{}, accessErr
-	}
-	if refreshErr != nil {
-		return JwtAuthTokens{}, refreshErr
-	}
-
-	return JwtAuthTokens{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-	}, nil
-}
-
-func newAccessToken(info AccessTokenCustomClaims) (JwtToken, error) {
-	expireTime := time.Now().Add(AccessTokenDuration)
-	claims := &AccessTokenClaims{
-		info,
-		jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expireTime),
+// Signs a JWT token in JWS format
+func SignJwtToken(
+	key []byte,
+	rc JwtRegisteredClaims,
+	pcs ...JwtPrivateClaims,
+) (JwtToken, error) {
+	signer, err := jose.NewSigner(
+		jose.SigningKey{
+			Algorithm: jose.HS256,
+			Key:       key,
 		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	signedToken, err := token.SignedString([]byte(jwtSecret))
+		nil,
+	)
 	if err != nil {
 		return JwtToken{}, err
 	}
 
-	return JwtToken{
-		Value:     signedToken,
-		ExpiresAt: expireTime,
-	}, nil
-}
-
-func newRefreshToken(info RefreshTokenCustomClaims) (JwtToken, error) {
-	expireTime := time.Now().Add(RefreshTokenDuration)
-	claims := &RefreshTokenClaims{
-		info,
-		jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expireTime),
-		},
+	builder := jwt.Signed(signer).
+		Claims(rc)
+	for _, pc := range pcs {
+		builder = builder.Claims(pc)
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	signedToken, err := token.SignedString([]byte(jwtSecret))
+	signedToken, err := builder.Serialize()
 	if err != nil {
 		return JwtToken{}, err
 	}
 
-	return JwtToken{
-		Value:     signedToken,
-		ExpiresAt: expireTime,
-	}, nil
+	return JwtToken{Value: signedToken, JwtRegisteredClaims: rc}, nil
 }
 
-func ParseRefreshToken(token string) (*RefreshTokenClaims, error) {
-	claims := new(RefreshTokenClaims)
-	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(jwtSecret), nil
-	})
-
+// Validates a signed JWT token in JWS format.
+// "claims" will be populated and used for validation.
+// Returns the registered claims.
+func ValidateSignedJwtToken(
+	key []byte,
+	token string,
+	claims ...JwtPrivateClaims,
+) (JwtRegisteredClaims, error) {
+	// Parse the token
+	parsed, err := jwt.ParseSigned(
+		token,
+		[]jose.SignatureAlgorithm{jose.HS256},
+	)
 	if err != nil {
-		return new(RefreshTokenClaims), err
+		return JwtRegisteredClaims{}, err
 	}
 
-	return claims, nil
-}
+	var rc JwtRegisteredClaims
 
-func ParseAccessToken(token string) (*AccessTokenClaims, error) {
-	claims := new(AccessTokenClaims)
-	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(jwtSecret), nil
-	})
-
+	// Parse the registered claims
+	err = parsed.Claims(key, &rc)
 	if err != nil {
-		return new(AccessTokenClaims), err
+		return JwtRegisteredClaims{}, err
 	}
 
-	return claims, nil
-}
-
-func ParseJwtToken[T jwt.Claims](token string) (T, error) {
-	claims := new(T)
-	_, err := jwt.ParseWithClaims(token, *claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(jwtSecret), nil
-	})
-
+	// Validate the token
+	err = rc.Validate(jwt.Expected{})
 	if err != nil {
-		return *new(T), err
+		return JwtRegisteredClaims{}, err
 	}
 
-	return *claims, nil
+	// Parse the private claims
+	err = parsed.Claims(key, claims...)
+	if err != nil {
+		return JwtRegisteredClaims{}, err
+	}
+
+	return rc, nil
 }
 
-func ValidateJwtToken(token string) error {
-	_, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-		return []byte(jwtSecret), nil
-	})
+// Encrypts a JWT token in JWE format
+func EncryptJwtToken(
+	key []byte,
+	rc JwtRegisteredClaims,
+	pcs ...JwtPrivateClaims,
+) (JwtToken, error) {
+	encrypter, err := jose.NewEncrypter(
+		jose.A256GCM,
+		jose.Recipient{
+			Algorithm: jose.DIRECT,
+			Key:       key,
+		},
+		nil,
+	)
 
-	return err
+	if err != nil {
+		return JwtToken{}, err
+	}
+
+	builder := jwt.Encrypted(encrypter).
+		Claims(rc)
+	for _, pc := range pcs {
+		builder = builder.Claims(pc)
+	}
+
+	serializedToken, err := builder.Serialize()
+	if err != nil {
+		return JwtToken{}, err
+	}
+
+	return JwtToken{Value: serializedToken, JwtRegisteredClaims: rc}, nil
+}
+
+// Validates an encrypted JWT token in JWE format.
+// "claims" will be populated and used for validation.
+// Returns the registered claims.
+func ValidateEncryptedJwtToken(
+	key []byte,
+	token string,
+	claims ...JwtPrivateClaims,
+) (JwtRegisteredClaims, error) {
+	// Decrypt & parse the token
+	parsedToken, err := jwt.ParseEncrypted(
+		token,
+		[]jose.KeyAlgorithm{jose.DIRECT},
+		[]jose.ContentEncryption{jose.A256GCM},
+	)
+	if err != nil {
+		return JwtRegisteredClaims{}, err
+	}
+
+	// Parse the registered claims
+	var rc JwtRegisteredClaims
+	err = parsedToken.Claims(key, &rc)
+	if err != nil {
+		return JwtRegisteredClaims{}, err
+	}
+
+	// Validate the token
+	err = rc.Validate(jwt.Expected{})
+	if err != nil {
+		return JwtRegisteredClaims{}, err
+	}
+
+	// Parse the private claims
+	err = parsedToken.Claims(key, claims...)
+	if err != nil {
+		return JwtRegisteredClaims{}, err
+	}
+
+	return rc, nil
 }

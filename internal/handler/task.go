@@ -10,10 +10,7 @@ import (
 
 // GetTasks implements api.StrictServerInterface.
 func (s *Handler) GetTasks(ctx context.Context, request api.GetTasksRequestObject) (api.GetTasksResponseObject, error) {
-	authInfo, ok := ctx.Value(api.ContextKey("auth")).(api.AuthInfo)
-	if !ok {
-		return nil, errors.New("auth info not found")
-	}
+	authInfo := api.AuthInfoOfRequest(ctx)
 
 	tasks, err := task.GetAllTasks(authInfo.ID)
 	if err != nil {
@@ -38,10 +35,7 @@ func (s *Handler) GetTasks(ctx context.Context, request api.GetTasksRequestObjec
 
 // PostTasks implements api.StrictServerInterface.
 func (s *Handler) PostTasks(ctx context.Context, request api.PostTasksRequestObject) (api.PostTasksResponseObject, error) {
-	authInfo, ok := ctx.Value(api.ContextKey("auth")).(api.AuthInfo)
-	if !ok {
-		return nil, errors.New("auth info not found")
-	}
+	authInfo := api.AuthInfoOfRequest(ctx)
 
 	newTask := model.Task{
 		UserID:        authInfo.ID,
@@ -76,10 +70,7 @@ func (s *Handler) PostTasks(ctx context.Context, request api.PostTasksRequestObj
 
 // PutTasksId implements api.StrictServerInterface.
 func (s *Handler) PutTasksId(ctx context.Context, request api.PutTasksIdRequestObject) (api.PutTasksIdResponseObject, error) {
-	authInfo, ok := ctx.Value(api.ContextKey("auth")).(api.AuthInfo)
-	if !ok {
-		return nil, errors.New("auth info not found")
-	}
+	authInfo := api.AuthInfoOfRequest(ctx)
 
 	taskToUpdate := model.Task{
 		ID:            request.Id,
@@ -107,10 +98,7 @@ func (s *Handler) PutTasksId(ctx context.Context, request api.PutTasksIdRequestO
 
 // DeleteTasksId implements api.StrictServerInterface.
 func (s *Handler) DeleteTasksId(ctx context.Context, request api.DeleteTasksIdRequestObject) (api.DeleteTasksIdResponseObject, error) {
-	authInfo, ok := ctx.Value(api.ContextKey("auth")).(api.AuthInfo)
-	if !ok {
-		return nil, errors.New("auth info not found")
-	}
+	authInfo := api.AuthInfoOfRequest(ctx)
 
 	err := task.DeleteTaskOfUser(request.Id, authInfo.ID)
 	if err != nil {

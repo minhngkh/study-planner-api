@@ -12,12 +12,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type ContextKey string
-
-type AuthInfo struct {
-	ID int32
-}
-
 func NewEchoHandler() *echo.Echo {
 	e := echo.New()
 
@@ -55,6 +49,7 @@ func NewEchoHandler() *echo.Echo {
 			echo.HeaderContentType,
 			echo.HeaderAccept,
 			echo.HeaderAuthorization,
+			echo.HeaderCookie,
 		},
 		AllowCredentials: true,
 	}))
@@ -64,6 +59,18 @@ func NewEchoHandler() *echo.Echo {
 		log.Fatal().Err(err).Msg("failed to get swagger")
 	}
 	specs.Servers = nil
+
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			req := c.Request()
+			cookie, _ := c.Cookie("refresh_token")
+
+			log.Debug().Interface("cookie", cookie).Msg("cookie")
+			extendRequestContext(req, extendedCtx.host, req.Host)
+
+			return next(c)
+		}
+	})
 
 	e.Use(oapiEchoMiddleware.OapiRequestValidatorWithOptions(specs, &oapiEchoMiddleware.Options{
 		ErrorHandler: func(c echo.Context, err *echo.HTTPError) error {
@@ -88,21 +95,23 @@ func NewEchoHandler() *echo.Echo {
 						token = authHeader[7:]
 					}
 
-					log.Debug().Str("token", token).Msg("validation")
-					claims, err := auth.ParseAccessToken(token)
+					info, _, err := auth.ValidateAccessToken(token)
 					if err != nil {
 						return errors.New("invalid token")
 					}
 
-					log.Debug().Interface("claims", claims).Msg("validation")
-
+					log.Debug().Interface("auth_info", info).Msg("validation")
+					// log.Debug().Interface("cookie", req.Cookies()).Msg("cookie")
 					// echoCtx := oapiEchoMiddleware.GetEchoContext(ctx)
+					// ch := make(chan bool, 1)
+					// go func() {
+					// 	authCtx := context.WithValue(ctx, ContextKey("auth"), AuthInfo{ID: claims.UserID})
+					// 	echoCtx.SetRequest(echoCtx.Request().WithContext(authCtx))
+					// 	ch <- true
+					// }()
+					// <-ch
 
-					authCtx := context.WithValue(ctx, ContextKey("auth"), AuthInfo{ID: claims.UserID})
-
-					*ai.RequestValidationInput.Request = *ai.RequestValidationInput.Request.WithContext(authCtx)
-					// echoCtx.Set("auth", AuthInfo{ID: claims.UserID})
-					// echoCtx.SetRequest(echoCtx.Request().WithContext(authCtx))
+					extendRequestContext(req, extendedCtx.authInfo, authInfo{ID: info.UserID})
 
 					return nil
 				default:
