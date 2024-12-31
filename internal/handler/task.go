@@ -8,11 +8,82 @@ import (
 	"study-planner-api/internal/task"
 )
 
-// GetTasks implements api.StrictServerInterface.
+const (
+	TaskSortByDefault        = task.SortFieldCreatedAt
+	TaskSortOrderDefault     = task.SortOrderDesc
+	TaskPageDefault      int = 1
+	TaskLimitDefault     int = 10
+)
+
 func (s *Handler) GetTasks(ctx context.Context, request api.GetTasksRequestObject) (api.GetTasksResponseObject, error) {
 	authInfo := api.AuthInfoOfRequest(ctx)
 
-	tasks, err := task.GetAllTasks(authInfo.ID)
+	criteria := task.GetCriteria{
+		UserID: authInfo.ID,
+		Search: request.Params.Search,
+	}
+
+	if request.Params.Page != nil {
+		criteria.Pagination.Page = *request.Params.Page
+	} else {
+		criteria.Pagination.Page = TaskPageDefault
+	}
+
+	if request.Params.Limit != nil {
+		criteria.Pagination.Limit = *request.Params.Limit
+	} else {
+		criteria.Pagination.Limit = TaskLimitDefault
+	}
+
+	if request.Params.Status != nil {
+		status, err := task.StatusFromString(*request.Params.Status)
+		if err != nil {
+			return api.GetTasks400Response{}, nil
+		}
+
+		criteria.Status = &status
+	}
+
+	if request.Params.Priority != nil {
+		priority, err := task.PriorityFromString(*request.Params.Priority)
+		if err != nil {
+			return api.GetTasks400Response{}, nil
+		}
+
+		criteria.Priority = &priority
+	}
+
+	if request.Params.StartDate != nil {
+		criteria.StartTime = &request.Params.StartDate.Time
+	}
+
+	if request.Params.EndDate != nil {
+		criteria.EndTime = &request.Params.EndDate.Time
+	}
+
+	if request.Params.SortBy != nil {
+		sortBy, err := task.SortFieldFromString(string(*request.Params.SortBy))
+		if err != nil {
+			return api.GetTasks400Response{}, nil
+		}
+
+		criteria.SortType.Field = sortBy
+	} else {
+		criteria.SortType.Field = TaskSortByDefault
+	}
+
+	if request.Params.SortOrder != nil {
+		sortOrder, err := task.SortOrderFromString(string(*request.Params.SortOrder))
+		if err != nil {
+			return api.GetTasks400Response{}, nil
+		}
+
+		criteria.SortType.Order = sortOrder
+	} else {
+		criteria.SortType.Order = TaskSortOrderDefault
+	}
+
+	tasks, err := task.GetTasks(&criteria)
 	if err != nil {
 		return nil, err
 	}
@@ -30,7 +101,15 @@ func (s *Handler) GetTasks(ctx context.Context, request api.GetTasksRequestObjec
 		}
 	}
 
-	return api.GetTasks200JSONResponse(apiTasks), nil
+	return api.GetTasks200JSONResponse{
+		Data: &apiTasks,
+		Pagination: &api.PaginationResponse{
+			Total:      &criteria.Pagination.Total,
+			Page:       &criteria.Pagination.Page,
+			Limit:      &criteria.Pagination.Limit,
+			TotalPages: &criteria.Pagination.TotalPages,
+		},
+	}, nil
 }
 
 // PostTasks implements api.StrictServerInterface.

@@ -1,130 +1,152 @@
 package provider
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
-
-	_ "github.com/joho/godotenv/autoload"
-	"github.com/rs/zerolog/log"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
-
+	"study-planner-api/internal/auth"
 	db "study-planner-api/internal/database"
 	"study-planner-api/internal/model"
 
-	"gorm.io/gorm"
+	_ "github.com/joho/godotenv/autoload"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"gorm.io/gorm/clause"
 )
 
 var (
-	googleConfig = oauth2.Config{
+	config = oauth2.Config{
+		RedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"),
 		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
-		RedirectURL:  "postmessage",
 		Scopes: []string{
 			"https://www.googleapis.com/auth/userinfo.email",
 			"https://www.googleapis.com/auth/userinfo.profile",
 		},
 		Endpoint: google.Endpoint,
 	}
+	resourceUrl = "https://www.googleapis.com/oauth2/v2/userinfo"
 )
 
-type googleLoginRequest struct {
-	AuthCode string `json:"code" validate:"required"`
+type GoogleUserInfo struct {
+	ID            string `json:"id"`
+	Email         string `json:"email"`
+	VerifiedEmail bool   `json:"verified_email"`
+	Name          string `json:"name"`
+	GivenName     string `json:"given_name"`
+	FamilyName    string `json:"family_name"`
+	PictureUrl    string `json:"picture"`
 }
 
-type googleUserInfo struct {
-	ID         string `json:"id"`
-	Email      string `json:"email"`
-	FamilyName string `json:"family_name"`
-	GivenName  string `json:"given_name"`
-	Name       string `json:"name"`
-	Picture    string `json:"picture"`
+type StateToken struct {
+	Type  string `json:"token_type"`
+	Value string `json:"token_value"`
 }
 
-// func GoogleAuthHandler(c echo.Context) error {
-// 	var req googleLoginRequest
-// 	if err := validator.BindAndValidateRequest(c, &req); err != nil {
-// 		return err
-// 	}
+func GoogleAuthEndpoint(stateToken string) string {
+	return config.AuthCodeURL(stateToken)
+}
 
-// 	AccessToken, err := googleConfig.Exchange(c.Request().Context(), req.AuthCode)
-// 	if err != nil {
-// 		log.Debug().Msg(err.Error())
-// 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid authorization code")
-// 	}
+func CreateGoogleStateToken(app auth.RequestApplication) (auth.JwtToken, error) {
+	return auth.CreateOauth2StateToken(app, "google")
+}
 
-// 	client := googleConfig.Client(c.Request().Context(), AccessToken)
-// 	res, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
-// 	if err != nil {
-// 		return echo.NewHTTPError(http.StatusBadRequest, "Failed to get user info from Google")
-// 	}
-// 	defer res.Body.Close()
+func ValidateGoogleStateToken(token string) (auth.RequestApplication, error) {
+	return auth.ValidateOauth2StateToken(token, "google")
+}
 
-// 	var info googleUserInfo
-// 	if err := json.NewDecoder(res.Body).Decode(&info); err != nil {
-// 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to decode user info")
-// 	}
+func ExchangeWithGoogleForAuthTokens(authCode string) (authToken string, refreshToken string, err error) {
+	token, err := config.Exchange(context.Background(), authCode)
+	if err != nil {
+		return "", "", err
+	}
 
-// 	var userID int32
-// 	user, err := user.GetUserInfoByGoogleID(info.ID)
-// 	if err == nil {
-// 		userID = user.ID
-// 	} else {
-// 		userID, err = linkGoogleAccountToUser(&info)
-// 		if err != nil {
-// 			return echo.NewHTTPError(http.StatusInternalServerError)
-// 		}
-// 	}
+	return token.AccessToken, token.RefreshToken, nil
+}
 
-// 	// TODO: duplicated code with login handler in auth
-// 	tokens, err := auth.NewJwtAuthTokens(auth.AccessTokenCustomClaims{
-// 		UserID: userID,
-// 	})
-// 	if err != nil {
-// 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create JWT tokens")
-// 	}
+func GetGoogleUserInfo(accessToken string) (GoogleUserInfo, error) {
+	url, err := url.Parse(resourceUrl)
+	if err != nil {
+		return GoogleUserInfo{}, err
+	}
 
-// 	err = auth.CreateSession(userID, tokens.RefreshToken)
-// 	if err != nil {
-// 		return echo.NewHTTPError(http.StatusInternalServerError)
-// 	}
+	query := url.Query()
+	query.Add("access_token", accessToken)
+	url.RawQuery = query.Encode()
 
-// 	return c.JSON(http.StatusOK, map[string]string{
-// 		"access_token":  tokens.AccessToken.Value,
-// 		"refresh_token": tokens.RefreshToken.Value,
-// 	})
-// }
+	resp, err := http.Get(url.String())
+	if err != nil {
+		return GoogleUserInfo{}, err
+	}
 
-// Link Google account to existing user, if not, creating an empty one
-func linkGoogleAccountToUser(info *googleUserInfo) (int32, error) {
-	// Attempt to create or update the user with GoogleID
+	rawInfo, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return GoogleUserInfo{}, err
+	}
+
+	var userInfo GoogleUserInfo
+	err = json.Unmarshal(rawInfo, &userInfo)
+	if err != nil {
+		return GoogleUserInfo{}, err
+	}
+
+	return userInfo, nil
+}
+
+var (
+	ErrInvalidGoogleAccount = errors.New("invalid google account")
+)
+
+func ValidateGoogleAccount(googleInfo GoogleUserInfo) (int32, error) {
+	if !googleInfo.VerifiedEmail {
+		return -1, ErrInvalidGoogleAccount
+	}
+
+	var user model.User
 	result := db.Instance().
-		Clauses(clause.OnConflict{
-			Columns: []clause.Column{{Name: "email"}},
-			DoUpdates: clause.Assignments(map[string]interface{}{
-				"google_id": gorm.Expr("CASE WHEN google_id IS NULL OR google_id = '' THEN ? ELSE google_id END", info.ID),
-			}),
-		}).
-		Create(&model.User{
-			Email:    info.Email,
-			GoogleID: info.ID,
-		})
-
+		Model(&model.User{}).
+		Where("google_id = ?", googleInfo.ID).
+		First(&user)
 	if result.Error != nil {
 		return -1, result.Error
 	}
-
-	log.Info().Msgf("Start")
-
-	// TODO: Migrate to sqlc soon, cause this is absurd
-	// Fetch the user to ensure the ID is populated
-	var user2 model.User
-	result2 := db.Instance().Where("email = ?", info.Email).First(&user2)
-	if result2.Error != nil {
-		return -1, result2.Error
+	if result.RowsAffected == 0 {
+		return linkGoogleAccount(googleInfo)
 	}
 
-	log.Info().Msgf("Linked Google ID: %s to user ID: %d", info.ID, user2.ID)
+	return user.ID, nil
+}
 
-	return user2.ID, nil
+func linkGoogleAccount(googleInfo GoogleUserInfo) (int32, error) {
+	user := model.User{
+		GoogleID: googleInfo.ID,
+	}
+
+	var users []model.User
+	result := db.Instance().
+		Model(&users).
+		Clauses(clause.Returning{Columns: []clause.Column{{Name: "id"}}}).
+		Where("email = ?", googleInfo.Email).
+		Updates(&user).
+		Limit(1)
+	if result.Error != nil {
+		return -1, result.Error
+	}
+	if result.RowsAffected == 0 {
+		user.Email = googleInfo.Email
+
+		result = db.Instance().
+			Select("email", "google_id").
+			Create(&user)
+		if result.Error != nil {
+			return -1, result.Error
+		}
+		return user.ID, nil
+	}
+
+	return users[0].ID, nil
 }

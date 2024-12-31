@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -23,6 +24,9 @@ import (
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Get focus session analytics
+	// (GET /analytics/focus)
+	GetAnalyticsFocus(ctx echo.Context, params GetAnalyticsFocusParams) error
 	// Initiate Google OAuth2 login flow
 	// (GET /auth/google/authorize)
 	GetAuthGoogleAuthorize(ctx echo.Context) error
@@ -32,6 +36,12 @@ type ServerInterface interface {
 	// Get new access and refresh tokens using refresh token
 	// (POST /auth/refresh-token)
 	PostAuthRefreshToken(ctx echo.Context, params PostAuthRefreshTokenParams) error
+	// Start a new focus session
+	// (POST /focus-sessions)
+	PostFocusSessions(ctx echo.Context) error
+	// End an active focus session
+	// (POST /focus-sessions/{id}/end)
+	PostFocusSessionsIdEnd(ctx echo.Context, id int32) error
 	// Login to the system
 	// (POST /login)
 	PostLogin(ctx echo.Context) error
@@ -46,7 +56,7 @@ type ServerInterface interface {
 	PostRegister(ctx echo.Context) error
 	// Get list of user's tasks
 	// (GET /tasks)
-	GetTasks(ctx echo.Context) error
+	GetTasks(ctx echo.Context, params GetTasksParams) error
 	// Create a new task
 	// (POST /tasks)
 	PostTasks(ctx echo.Context) error
@@ -61,6 +71,33 @@ type ServerInterface interface {
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// GetAnalyticsFocus converts echo context to params.
+func (w *ServerInterfaceWrapper) GetAnalyticsFocus(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAnalyticsFocusParams
+	// ------------- Optional query parameter "start_date" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "start_date", ctx.QueryParams(), &params.StartDate)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter start_date: %s", err))
+	}
+
+	// ------------- Optional query parameter "end_date" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "end_date", ctx.QueryParams(), &params.EndDate)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter end_date: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetAnalyticsFocus(ctx, params)
+	return err
 }
 
 // GetAuthGoogleAuthorize converts echo context to params.
@@ -85,9 +122,9 @@ func (w *ServerInterfaceWrapper) GetAuthGoogleCallback(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter code: %s", err))
 	}
 
-	// ------------- Optional query parameter "state" -------------
+	// ------------- Required query parameter "state" -------------
 
-	err = runtime.BindQueryParameter("form", true, false, "state", ctx.QueryParams(), &params.State)
+	err = runtime.BindQueryParameter("form", true, true, "state", ctx.QueryParams(), &params.State)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter state: %s", err))
 	}
@@ -120,6 +157,35 @@ func (w *ServerInterfaceWrapper) PostAuthRefreshToken(ctx echo.Context) error {
 	return err
 }
 
+// PostFocusSessions converts echo context to params.
+func (w *ServerInterfaceWrapper) PostFocusSessions(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.PostFocusSessions(ctx)
+	return err
+}
+
+// PostFocusSessionsIdEnd converts echo context to params.
+func (w *ServerInterfaceWrapper) PostFocusSessionsIdEnd(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int32
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.PostFocusSessionsIdEnd(ctx, id)
+	return err
+}
+
 // PostLogin converts echo context to params.
 func (w *ServerInterfaceWrapper) PostLogin(ctx echo.Context) error {
 	var err error
@@ -132,8 +198,6 @@ func (w *ServerInterfaceWrapper) PostLogin(ctx echo.Context) error {
 // PostLogout converts echo context to params.
 func (w *ServerInterfaceWrapper) PostLogout(ctx echo.Context) error {
 	var err error
-
-	ctx.Set(BearerAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params PostLogoutParams
@@ -180,8 +244,73 @@ func (w *ServerInterfaceWrapper) GetTasks(ctx echo.Context) error {
 
 	ctx.Set(BearerAuthScopes, []string{})
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetTasksParams
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "page", ctx.QueryParams(), &params.Page)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter page: %s", err))
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", ctx.QueryParams(), &params.Limit)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", ctx.QueryParams(), &params.Search)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter search: %s", err))
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "status", ctx.QueryParams(), &params.Status)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter status: %s", err))
+	}
+
+	// ------------- Optional query parameter "priority" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "priority", ctx.QueryParams(), &params.Priority)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter priority: %s", err))
+	}
+
+	// ------------- Optional query parameter "start_date" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "start_date", ctx.QueryParams(), &params.StartDate)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter start_date: %s", err))
+	}
+
+	// ------------- Optional query parameter "end_date" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "end_date", ctx.QueryParams(), &params.EndDate)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter end_date: %s", err))
+	}
+
+	// ------------- Optional query parameter "sort_by" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "sort_by", ctx.QueryParams(), &params.SortBy)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter sort_by: %s", err))
+	}
+
+	// ------------- Optional query parameter "sort_order" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "sort_order", ctx.QueryParams(), &params.SortOrder)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter sort_order: %s", err))
+	}
+
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.GetTasks(ctx)
+	err = w.Handler.GetTasks(ctx, params)
 	return err
 }
 
@@ -260,9 +389,12 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
+	router.GET(baseURL+"/analytics/focus", wrapper.GetAnalyticsFocus)
 	router.GET(baseURL+"/auth/google/authorize", wrapper.GetAuthGoogleAuthorize)
 	router.GET(baseURL+"/auth/google/callback", wrapper.GetAuthGoogleCallback)
 	router.POST(baseURL+"/auth/refresh-token", wrapper.PostAuthRefreshToken)
+	router.POST(baseURL+"/focus-sessions", wrapper.PostFocusSessions)
+	router.POST(baseURL+"/focus-sessions/:id/end", wrapper.PostFocusSessionsIdEnd)
 	router.POST(baseURL+"/login", wrapper.PostLogin)
 	router.POST(baseURL+"/logout", wrapper.PostLogout)
 	router.GET(baseURL+"/profile", wrapper.GetProfile)
@@ -274,7 +406,33 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 }
 
-type UnauthorizedJSONResponse DefaultResponse
+type ForbiddenJSONResponse DefaultResponse
+
+type GetAnalyticsFocusRequestObject struct {
+	Params GetAnalyticsFocusParams
+}
+
+type GetAnalyticsFocusResponseObject interface {
+	VisitGetAnalyticsFocusResponse(w http.ResponseWriter) error
+}
+
+type GetAnalyticsFocus200JSONResponse FocusAnalytics
+
+func (response GetAnalyticsFocus200JSONResponse) VisitGetAnalyticsFocusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnalyticsFocus403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAnalyticsFocus403JSONResponse) VisitGetAnalyticsFocusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
 
 type GetAuthGoogleAuthorizeRequestObject struct {
 }
@@ -307,13 +465,23 @@ type GetAuthGoogleCallbackResponseObject interface {
 	VisitGetAuthGoogleCallbackResponse(w http.ResponseWriter) error
 }
 
-type GetAuthGoogleCallback200JSONResponse AuthTokens
+type GetAuthGoogleCallback200TexthtmlResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
 
-func (response GetAuthGoogleCallback200JSONResponse) VisitGetAuthGoogleCallbackResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
+func (response GetAuthGoogleCallback200TexthtmlResponse) VisitGetAuthGoogleCallbackResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "text/html")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
 	w.WriteHeader(200)
 
-	return json.NewEncoder(w).Encode(response)
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
 }
 
 type GetAuthGoogleCallback301ResponseHeaders struct {
@@ -348,21 +516,21 @@ type PostAuthRefreshTokenResponseObject interface {
 	VisitPostAuthRefreshTokenResponse(w http.ResponseWriter) error
 }
 
-type PostAuthRefreshToken200JSONResponse AuthTokens
+type PostAuthRefreshToken200ResponseHeaders struct {
+	SetCookie string
+}
+
+type PostAuthRefreshToken200JSONResponse struct {
+	Body    AuthTokens
+	Headers PostAuthRefreshToken200ResponseHeaders
+}
 
 func (response PostAuthRefreshToken200JSONResponse) VisitPostAuthRefreshTokenResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
 	w.WriteHeader(200)
 
-	return json.NewEncoder(w).Encode(response)
-}
-
-type PostAuthRefreshToken401Response struct {
-}
-
-func (response PostAuthRefreshToken401Response) VisitPostAuthRefreshTokenResponse(w http.ResponseWriter) error {
-	w.WriteHeader(401)
-	return nil
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type PostAuthRefreshToken403Response struct {
@@ -370,6 +538,90 @@ type PostAuthRefreshToken403Response struct {
 
 func (response PostAuthRefreshToken403Response) VisitPostAuthRefreshTokenResponse(w http.ResponseWriter) error {
 	w.WriteHeader(403)
+	return nil
+}
+
+type PostFocusSessionsRequestObject struct {
+	Body *PostFocusSessionsJSONRequestBody
+}
+
+type PostFocusSessionsResponseObject interface {
+	VisitPostFocusSessionsResponse(w http.ResponseWriter) error
+}
+
+type PostFocusSessions201JSONResponse FocusSession
+
+func (response PostFocusSessions201JSONResponse) VisitPostFocusSessionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PostFocusSessions400Response struct {
+}
+
+func (response PostFocusSessions400Response) VisitPostFocusSessionsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type PostFocusSessions403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostFocusSessions403JSONResponse) VisitPostFocusSessionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PostFocusSessions404Response struct {
+}
+
+func (response PostFocusSessions404Response) VisitPostFocusSessionsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
+	return nil
+}
+
+type PostFocusSessionsIdEndRequestObject struct {
+	Id int32 `json:"id"`
+}
+
+type PostFocusSessionsIdEndResponseObject interface {
+	VisitPostFocusSessionsIdEndResponse(w http.ResponseWriter) error
+}
+
+type PostFocusSessionsIdEnd200JSONResponse FocusSession
+
+func (response PostFocusSessionsIdEnd200JSONResponse) VisitPostFocusSessionsIdEndResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PostFocusSessionsIdEnd400Response struct {
+}
+
+func (response PostFocusSessionsIdEnd400Response) VisitPostFocusSessionsIdEndResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type PostFocusSessionsIdEnd403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostFocusSessionsIdEnd403JSONResponse) VisitPostFocusSessionsIdEndResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PostFocusSessionsIdEnd404Response struct {
+}
+
+func (response PostFocusSessionsIdEnd404Response) VisitPostFocusSessionsIdEndResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
 	return nil
 }
 
@@ -381,13 +633,21 @@ type PostLoginResponseObject interface {
 	VisitPostLoginResponse(w http.ResponseWriter) error
 }
 
-type PostLogin200JSONResponse AuthTokens
+type PostLogin200ResponseHeaders struct {
+	SetCookie string
+}
+
+type PostLogin200JSONResponse struct {
+	Body    AuthTokens
+	Headers PostLogin200ResponseHeaders
+}
 
 func (response PostLogin200JSONResponse) VisitPostLoginResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
 	w.WriteHeader(200)
 
-	return json.NewEncoder(w).Encode(response)
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type PostLogin400Response struct {
@@ -407,19 +667,31 @@ type PostLogoutResponseObject interface {
 	VisitPostLogoutResponse(w http.ResponseWriter) error
 }
 
+type PostLogout200ResponseHeaders struct {
+	SetCookie string
+}
+
 type PostLogout200Response struct {
+	Headers PostLogout200ResponseHeaders
 }
 
 func (response PostLogout200Response) VisitPostLogoutResponse(w http.ResponseWriter) error {
+	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
 	w.WriteHeader(200)
 	return nil
 }
 
-type PostLogout401Response struct {
+type PostLogout403ResponseHeaders struct {
+	SetCookie string
 }
 
-func (response PostLogout401Response) VisitPostLogoutResponse(w http.ResponseWriter) error {
-	w.WriteHeader(401)
+type PostLogout403Response struct {
+	Headers PostLogout403ResponseHeaders
+}
+
+func (response PostLogout403Response) VisitPostLogoutResponse(w http.ResponseWriter) error {
+	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
+	w.WriteHeader(403)
 	return nil
 }
 
@@ -439,11 +711,11 @@ func (response GetProfile200JSONResponse) VisitGetProfileResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetProfile401JSONResponse struct{ UnauthorizedJSONResponse }
+type GetProfile403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response GetProfile401JSONResponse) VisitGetProfileResponse(w http.ResponseWriter) error {
+func (response GetProfile403JSONResponse) VisitGetProfileResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
+	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -475,13 +747,17 @@ func (response PostRegister400JSONResponse) VisitPostRegisterResponse(w http.Res
 }
 
 type GetTasksRequestObject struct {
+	Params GetTasksParams
 }
 
 type GetTasksResponseObject interface {
 	VisitGetTasksResponse(w http.ResponseWriter) error
 }
 
-type GetTasks200JSONResponse []Task
+type GetTasks200JSONResponse struct {
+	Data       *[]Task             `json:"data,omitempty"`
+	Pagination *PaginationResponse `json:"pagination,omitempty"`
+}
 
 func (response GetTasks200JSONResponse) VisitGetTasksResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -490,11 +766,19 @@ func (response GetTasks200JSONResponse) VisitGetTasksResponse(w http.ResponseWri
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetTasks401JSONResponse struct{ UnauthorizedJSONResponse }
+type GetTasks400Response struct {
+}
 
-func (response GetTasks401JSONResponse) VisitGetTasksResponse(w http.ResponseWriter) error {
+func (response GetTasks400Response) VisitGetTasksResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type GetTasks403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetTasks403JSONResponse) VisitGetTasksResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
+	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -525,11 +809,11 @@ func (response PostTasks400JSONResponse) VisitPostTasksResponse(w http.ResponseW
 	return json.NewEncoder(w).Encode(response)
 }
 
-type PostTasks401JSONResponse struct{ UnauthorizedJSONResponse }
+type PostTasks403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response PostTasks401JSONResponse) VisitPostTasksResponse(w http.ResponseWriter) error {
+func (response PostTasks403JSONResponse) VisitPostTasksResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
+	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -550,11 +834,11 @@ func (response DeleteTasksId204Response) VisitDeleteTasksIdResponse(w http.Respo
 	return nil
 }
 
-type DeleteTasksId401JSONResponse struct{ UnauthorizedJSONResponse }
+type DeleteTasksId403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response DeleteTasksId401JSONResponse) VisitDeleteTasksIdResponse(w http.ResponseWriter) error {
+func (response DeleteTasksId403JSONResponse) VisitDeleteTasksIdResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
+	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -585,11 +869,11 @@ func (response PutTasksId200Response) VisitPutTasksIdResponse(w http.ResponseWri
 	return nil
 }
 
-type PutTasksId401JSONResponse struct{ UnauthorizedJSONResponse }
+type PutTasksId403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response PutTasksId401JSONResponse) VisitPutTasksIdResponse(w http.ResponseWriter) error {
+func (response PutTasksId403JSONResponse) VisitPutTasksIdResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
+	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -605,6 +889,9 @@ func (response PutTasksId404JSONResponse) VisitPutTasksIdResponse(w http.Respons
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Get focus session analytics
+	// (GET /analytics/focus)
+	GetAnalyticsFocus(ctx context.Context, request GetAnalyticsFocusRequestObject) (GetAnalyticsFocusResponseObject, error)
 	// Initiate Google OAuth2 login flow
 	// (GET /auth/google/authorize)
 	GetAuthGoogleAuthorize(ctx context.Context, request GetAuthGoogleAuthorizeRequestObject) (GetAuthGoogleAuthorizeResponseObject, error)
@@ -614,6 +901,12 @@ type StrictServerInterface interface {
 	// Get new access and refresh tokens using refresh token
 	// (POST /auth/refresh-token)
 	PostAuthRefreshToken(ctx context.Context, request PostAuthRefreshTokenRequestObject) (PostAuthRefreshTokenResponseObject, error)
+	// Start a new focus session
+	// (POST /focus-sessions)
+	PostFocusSessions(ctx context.Context, request PostFocusSessionsRequestObject) (PostFocusSessionsResponseObject, error)
+	// End an active focus session
+	// (POST /focus-sessions/{id}/end)
+	PostFocusSessionsIdEnd(ctx context.Context, request PostFocusSessionsIdEndRequestObject) (PostFocusSessionsIdEndResponseObject, error)
 	// Login to the system
 	// (POST /login)
 	PostLogin(ctx context.Context, request PostLoginRequestObject) (PostLoginResponseObject, error)
@@ -650,6 +943,31 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// GetAnalyticsFocus operation middleware
+func (sh *strictHandler) GetAnalyticsFocus(ctx echo.Context, params GetAnalyticsFocusParams) error {
+	var request GetAnalyticsFocusRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAnalyticsFocus(ctx.Request().Context(), request.(GetAnalyticsFocusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAnalyticsFocus")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetAnalyticsFocusResponseObject); ok {
+		return validResponse.VisitGetAnalyticsFocusResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
 }
 
 // GetAuthGoogleAuthorize operation middleware
@@ -725,6 +1043,60 @@ func (sh *strictHandler) PostAuthRefreshToken(ctx echo.Context, params PostAuthR
 		return err
 	} else if validResponse, ok := response.(PostAuthRefreshTokenResponseObject); ok {
 		return validResponse.VisitPostAuthRefreshTokenResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PostFocusSessions operation middleware
+func (sh *strictHandler) PostFocusSessions(ctx echo.Context) error {
+	var request PostFocusSessionsRequestObject
+
+	var body PostFocusSessionsJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PostFocusSessions(ctx.Request().Context(), request.(PostFocusSessionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostFocusSessions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(PostFocusSessionsResponseObject); ok {
+		return validResponse.VisitPostFocusSessionsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PostFocusSessionsIdEnd operation middleware
+func (sh *strictHandler) PostFocusSessionsIdEnd(ctx echo.Context, id int32) error {
+	var request PostFocusSessionsIdEndRequestObject
+
+	request.Id = id
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PostFocusSessionsIdEnd(ctx.Request().Context(), request.(PostFocusSessionsIdEndRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostFocusSessionsIdEnd")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(PostFocusSessionsIdEndResponseObject); ok {
+		return validResponse.VisitPostFocusSessionsIdEndResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
@@ -844,8 +1216,10 @@ func (sh *strictHandler) PostRegister(ctx echo.Context) error {
 }
 
 // GetTasks operation middleware
-func (sh *strictHandler) GetTasks(ctx echo.Context) error {
+func (sh *strictHandler) GetTasks(ctx echo.Context, params GetTasksParams) error {
 	var request GetTasksRequestObject
+
+	request.Params = params
 
 	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.GetTasks(ctx.Request().Context(), request.(GetTasksRequestObject))
@@ -954,36 +1328,52 @@ func (sh *strictHandler) PutTasksId(ctx echo.Context, id int32) error {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"FHJQ2Ls1XOY3i78CAAD///AEKa3EIgAA",
+	"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",
+	"Ubw5AAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

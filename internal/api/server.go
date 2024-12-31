@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"os"
 	"study-planner-api/internal/auth"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -42,8 +43,22 @@ func NewEchoHandler() *echo.Echo {
 
 	e.Use(echoMiddleware.Recover())
 
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			log.Debug().Interface("request", c.Request().Host).Msg("request")
+			return next(c)
+		}
+	})
+
+	var allowOrigins []string
+	if os.Getenv("ENV") == "TEST" {
+		allowOrigins = []string{"*"}
+	} else {
+		allowOrigins = []string{"http://localhost:3000"}
+	}
+
 	e.Use(echoMiddleware.CORSWithConfig(echoMiddleware.CORSConfig{
-		AllowOrigins: []string{"*"},
+		AllowOrigins: allowOrigins,
 		AllowHeaders: []string{
 			echo.HeaderOrigin,
 			echo.HeaderContentType,
@@ -80,10 +95,11 @@ func NewEchoHandler() *echo.Echo {
 			AuthenticationFunc: func(ctx context.Context, ai *openapi3filter.AuthenticationInput) error {
 				log.Debug().Str("security_scheme_name", ai.SecuritySchemeName).Msg("validation")
 
+				var accessToken string
+				req := ai.RequestValidationInput.Request
+
 				switch ai.SecuritySchemeName {
 				case "bearerAuth":
-					var token string
-					req := ai.RequestValidationInput.Request
 					authHeader := req.Header.Get("Authorization")
 
 					switch {
@@ -92,31 +108,38 @@ func NewEchoHandler() *echo.Echo {
 					case len(authHeader) < 7 || authHeader[:7] != "Bearer ":
 						return errors.New("invalid Authorization header")
 					default:
-						token = authHeader[7:]
+						accessToken = authHeader[7:]
 					}
-
-					info, _, err := auth.ValidateAccessToken(token)
+				case "cookieAuth":
+					cookie, err := req.Cookie("access_token")
 					if err != nil {
-						return errors.New("invalid token")
+						return errors.New("missing access_token cookie")
 					}
 
-					log.Debug().Interface("auth_info", info).Msg("validation")
-					// log.Debug().Interface("cookie", req.Cookies()).Msg("cookie")
-					// echoCtx := oapiEchoMiddleware.GetEchoContext(ctx)
-					// ch := make(chan bool, 1)
-					// go func() {
-					// 	authCtx := context.WithValue(ctx, ContextKey("auth"), AuthInfo{ID: claims.UserID})
-					// 	echoCtx.SetRequest(echoCtx.Request().WithContext(authCtx))
-					// 	ch <- true
-					// }()
-					// <-ch
-
-					extendRequestContext(req, extendedCtx.authInfo, authInfo{ID: info.UserID})
-
-					return nil
+					accessToken = cookie.Value
 				default:
 					return errors.New("unimplemented security scheme")
 				}
+
+				info, _, err := auth.ValidateAccessToken(accessToken)
+				if err != nil {
+					return errors.New("invalid token")
+				}
+
+				log.Debug().Interface("auth_info", info).Msg("validation")
+				// log.Debug().Interface("cookie", req.Cookies()).Msg("cookie")
+				// echoCtx := oapiEchoMiddleware.GetEchoContext(ctx)
+				// ch := make(chan bool, 1)
+				// go func() {
+				// 	authCtx := context.WithValue(ctx, ContextKey("auth"), AuthInfo{ID: claims.UserID})
+				// 	echoCtx.SetRequest(echoCtx.Request().WithContext(authCtx))
+				// 	ch <- true
+				// }()
+				// <-ch
+
+				extendRequestContext(req, extendedCtx.authInfo, authInfo{ID: info.UserID})
+
+				return nil
 			},
 		},
 	}))

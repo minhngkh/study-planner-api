@@ -3,10 +3,12 @@ package handler
 import (
 	"context"
 	"errors"
+	"net/http"
 	"study-planner-api/internal/api"
 	"study-planner-api/internal/auth"
 	"study-planner-api/internal/user"
 	"study-planner-api/internal/utils"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
@@ -77,9 +79,21 @@ func (s *Handler) PostLogin(
 		return nil, err
 	}
 
+	cookie := http.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshToken.Value,
+		HttpOnly: true,
+		Expires:  refreshToken.Expiry.Time(),
+	}
+
 	return api.PostLogin200JSONResponse{
-		AccessToken:  &accessToken.Value,
-		RefreshToken: &refreshToken.Value,
+		Headers: api.PostLogin200ResponseHeaders{
+			SetCookie: cookie.String(),
+		},
+		Body: api.AuthTokens{
+			AccessToken:  &accessToken.Value,
+			RefreshToken: &refreshToken.Value,
+		},
 	}, nil
 }
 
@@ -89,24 +103,20 @@ func (s *Handler) PostAuthRefreshToken(
 ) (api.PostAuthRefreshTokenResponseObject, error) {
 	var refreshToken string
 	if request.Body.RefreshToken != nil {
-		log.Debug().Str("refreshToken", refreshToken).Msg("refresh token")
 		refreshToken = *request.Body.RefreshToken
 	} else if request.Params.RefreshToken != nil {
-		log.Debug().Str("refreshToken", refreshToken).Msg("refresh token")
-
 		refreshToken = *request.Params.RefreshToken
 	} else {
-		log.Debug().Str("refreshToken", refreshToken).Msg("refresh token")
-
-		return api.PostAuthRefreshToken401Response{}, nil
+		log.Debug().Msg("no refresh token provided")
+		return api.PostAuthRefreshToken403Response{}, nil
 	}
 
 	info, _, err := auth.ValidateRefreshToken(refreshToken)
 	if err != nil {
-		return api.PostAuthRefreshToken401Response{}, nil
+		return api.PostAuthRefreshToken403Response{}, nil
 	}
 
-	newAccessToken, newRefreshToken, err := auth.CreateAuthTokens(auth.RefreshInfo{
+	newAccessToken, newRefreshToken, err := auth.CreateAuthTokens(auth.AuthInfo{
 		UserID: info.UserID,
 	})
 	if err != nil {
@@ -122,9 +132,20 @@ func (s *Handler) PostAuthRefreshToken(
 		return nil, err
 	}
 
+	cookie := http.Cookie{
+		Name:     "refresh_token",
+		Value:    newRefreshToken.Value,
+		HttpOnly: true,
+	}
+
 	return api.PostAuthRefreshToken200JSONResponse{
-		AccessToken:  &newAccessToken.Value,
-		RefreshToken: &newRefreshToken.Value,
+		Headers: api.PostAuthRefreshToken200ResponseHeaders{
+			SetCookie: cookie.String(),
+		},
+		Body: api.AuthTokens{
+			AccessToken:  &newAccessToken.Value,
+			RefreshToken: &newRefreshToken.Value,
+		},
 	}, nil
 }
 
@@ -132,22 +153,47 @@ func (s *Handler) PostLogout(
 	ctx context.Context,
 	request api.PostLogoutRequestObject,
 ) (api.PostLogoutResponseObject, error) {
+	deletedCookie := http.Cookie{
+		Name:    "refresh_token",
+		Value:   "deleted",
+		Expires: time.Unix(0, 0),
+	}
+
 	var refreshToken string
 	if request.Body.RefreshToken != nil {
 		refreshToken = *request.Body.RefreshToken
-	} else {
+	} else if request.Params.RefreshToken != nil {
 		refreshToken = *request.Params.RefreshToken
+	} else {
+		log.Debug().Msg("no refresh token provided")
+		return api.PostLogout403Response{
+			Headers: api.PostLogout403ResponseHeaders{
+				SetCookie: deletedCookie.String(),
+			},
+		}, nil
 	}
 
 	info, _, err := auth.ValidateRefreshToken(refreshToken)
 	if err != nil {
-		return api.PostLogout401Response{}, nil
+		return api.PostLogout403Response{
+			Headers: api.PostLogout403ResponseHeaders{
+				SetCookie: deletedCookie.String(),
+			},
+		}, nil
 	}
 
 	err = auth.RemoveSession(info.UserID, refreshToken)
 	if err != nil {
-		return api.PostLogout401Response{}, nil
+		return api.PostLogout403Response{
+			Headers: api.PostLogout403ResponseHeaders{
+				SetCookie: deletedCookie.String(),
+			},
+		}, nil
 	}
 
-	return api.PostLogout200Response{}, nil
+	return api.PostLogout200Response{
+		Headers: api.PostLogout200ResponseHeaders{
+			SetCookie: deletedCookie.String(),
+		},
+	}, nil
 }

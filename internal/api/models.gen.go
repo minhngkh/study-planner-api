@@ -5,6 +5,8 @@ package api
 
 import (
 	"time"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const (
@@ -18,10 +20,34 @@ const (
 	InvalidPassword RegisterErrorType = "InvalidPassword"
 )
 
+// Defines values for GetTasksParamsSortBy.
+const (
+	CreatedAt GetTasksParamsSortBy = "created_at"
+	EndTime   GetTasksParamsSortBy = "end_time"
+	Priority  GetTasksParamsSortBy = "priority"
+	StartTime GetTasksParamsSortBy = "start_time"
+)
+
+// Defines values for GetTasksParamsSortOrder.
+const (
+	Asc  GetTasksParamsSortOrder = "asc"
+	Desc GetTasksParamsSortOrder = "desc"
+)
+
 // AuthTokens defines model for AuthTokens.
 type AuthTokens struct {
 	AccessToken  *string `json:"access_token,omitempty"`
 	RefreshToken *string `json:"refresh_token,omitempty"`
+}
+
+// CreateFocusSessionRequest defines model for CreateFocusSessionRequest.
+type CreateFocusSessionRequest struct {
+	// BreakDuration Break duration in seconds
+	BreakDuration *int  `json:"break_duration,omitempty"`
+	TaskId        int32 `json:"task_id"`
+
+	// TimerDuration Duration in seconds
+	TimerDuration int `json:"timer_duration"`
 }
 
 // CreateTaskRequest defines model for CreateTaskRequest.
@@ -30,16 +56,70 @@ type CreateTaskRequest struct {
 	EndTime     *time.Time `json:"end_time,omitempty"`
 
 	// EstimatedTime Estimated time in minutes
-	EstimatedTime *int32     `json:"estimated_time,omitempty"`
-	Name          string     `json:"name"`
-	Priority      string     `json:"priority"`
-	StartTime     *time.Time `json:"start_time,omitempty"`
-	Status        string     `json:"status"`
+	EstimatedTime *int32       `json:"estimated_time,omitempty"`
+	Name          string       `json:"name"`
+	Priority      TaskPriority `json:"priority"`
+	StartTime     *time.Time   `json:"start_time,omitempty"`
+	Status        TaskStatus   `json:"status"`
 }
 
 // DefaultResponse defines model for DefaultResponse.
 type DefaultResponse struct {
 	Message *string `json:"message,omitempty"`
+}
+
+// FocusAnalytics defines model for FocusAnalytics.
+type FocusAnalytics struct {
+	AiFeedback *struct {
+		ImprovementAreas *[]string `json:"improvement_areas,omitempty"`
+		Motivation       *string   `json:"motivation,omitempty"`
+		Strengths        *[]string `json:"strengths,omitempty"`
+	} `json:"ai_feedback,omitempty"`
+
+	// DailyTimeSpent Map of dates to seconds spent
+	DailyTimeSpent *map[string]int `json:"daily_time_spent,omitempty"`
+
+	// TaskStatusCounts Count of tasks in each status
+	TaskStatusCounts *map[string]int `json:"task_status_counts,omitempty"`
+
+	// TotalEstimatedTime Total estimated time in seconds
+	TotalEstimatedTime *int `json:"total_estimated_time,omitempty"`
+
+	// TotalTimeSpent Total time spent in seconds
+	TotalTimeSpent *int `json:"total_time_spent,omitempty"`
+}
+
+// FocusSession defines model for FocusSession.
+type FocusSession struct {
+	// BreakDuration Break duration in seconds
+	BreakDuration *int                `json:"break_duration,omitempty"`
+	EndedAt       *time.Time          `json:"ended_at,omitempty"`
+	Id            *int32              `json:"id,omitempty"`
+	StartedAt     *time.Time          `json:"started_at,omitempty"`
+	Status        *FocusSessionStatus `json:"status,omitempty"`
+	TaskId        *int32              `json:"task_id,omitempty"`
+
+	// TimerDuration Duration in seconds
+	TimerDuration *int   `json:"timer_duration,omitempty"`
+	UserId        *int32 `json:"user_id,omitempty"`
+}
+
+// FocusSessionStatus defines model for FocusSessionStatus.
+type FocusSessionStatus = string
+
+// PaginationResponse defines model for PaginationResponse.
+type PaginationResponse struct {
+	// Limit Number of items per page
+	Limit *int `json:"limit,omitempty"`
+
+	// Page Current page number
+	Page *int `json:"page,omitempty"`
+
+	// Total Total number of items
+	Total *int `json:"total,omitempty"`
+
+	// TotalPages Total number of pages
+	TotalPages *int `json:"total_pages,omitempty"`
 }
 
 // RegisterError defines model for RegisterError.
@@ -58,15 +138,21 @@ type Task struct {
 	EndTime     *time.Time `json:"end_time,omitempty"`
 
 	// EstimatedTime Estimated time in minutes
-	EstimatedTime *int32     `json:"estimated_time,omitempty"`
-	Id            *int32     `json:"id,omitempty"`
-	Name          *string    `json:"name,omitempty"`
-	Priority      *string    `json:"priority,omitempty"`
-	StartTime     *time.Time `json:"start_time,omitempty"`
-	Status        *string    `json:"status,omitempty"`
-	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
-	UserId        *int32     `json:"user_id,omitempty"`
+	EstimatedTime *int32        `json:"estimated_time,omitempty"`
+	Id            *int32        `json:"id,omitempty"`
+	Name          *string       `json:"name,omitempty"`
+	Priority      *TaskPriority `json:"priority,omitempty"`
+	StartTime     *time.Time    `json:"start_time,omitempty"`
+	Status        *TaskStatus   `json:"status,omitempty"`
+	UpdatedAt     *time.Time    `json:"updated_at,omitempty"`
+	UserId        *int32        `json:"user_id,omitempty"`
 }
+
+// TaskPriority defines model for TaskPriority.
+type TaskPriority = string
+
+// TaskStatus defines model for TaskStatus.
+type TaskStatus = string
 
 // UpdateTaskRequest defines model for UpdateTaskRequest.
 type UpdateTaskRequest struct {
@@ -74,11 +160,11 @@ type UpdateTaskRequest struct {
 	EndTime     *time.Time `json:"end_time,omitempty"`
 
 	// EstimatedTime Estimated time in minutes
-	EstimatedTime *int32     `json:"estimated_time,omitempty"`
-	Name          *string    `json:"name,omitempty"`
-	Priority      *string    `json:"priority,omitempty"`
-	StartTime     *time.Time `json:"start_time,omitempty"`
-	Status        *string    `json:"status,omitempty"`
+	EstimatedTime *int32        `json:"estimated_time,omitempty"`
+	Name          *string       `json:"name,omitempty"`
+	Priority      *TaskPriority `json:"priority,omitempty"`
+	StartTime     *time.Time    `json:"start_time,omitempty"`
+	Status        *TaskStatus   `json:"status,omitempty"`
 }
 
 // User defines model for User.
@@ -88,8 +174,20 @@ type User struct {
 	ID        *int32     `json:"id,omitempty"`
 }
 
-// Unauthorized defines model for Unauthorized.
-type Unauthorized = DefaultResponse
+// LimitParam defines model for LimitParam.
+type LimitParam = int
+
+// PageParam defines model for PageParam.
+type PageParam = int
+
+// Forbidden defines model for Forbidden.
+type Forbidden = DefaultResponse
+
+// GetAnalyticsFocusParams defines parameters for GetAnalyticsFocus.
+type GetAnalyticsFocusParams struct {
+	StartDate *openapi_types.Date `form:"start_date,omitempty" json:"start_date,omitempty"`
+	EndDate   *openapi_types.Date `form:"end_date,omitempty" json:"end_date,omitempty"`
+}
 
 // GetAuthGoogleCallbackParams defines parameters for GetAuthGoogleCallback.
 type GetAuthGoogleCallbackParams struct {
@@ -97,7 +195,7 @@ type GetAuthGoogleCallbackParams struct {
 	Code string `form:"code" json:"code"`
 
 	// State State parameter for CSRF protection
-	State *string `form:"state,omitempty" json:"state,omitempty"`
+	State string `form:"state" json:"state"`
 }
 
 // PostAuthRefreshTokenJSONBody defines parameters for PostAuthRefreshToken.
@@ -134,8 +232,47 @@ type PostRegisterJSONBody struct {
 	Password string `json:"password"`
 }
 
+// GetTasksParams defines parameters for GetTasks.
+type GetTasksParams struct {
+	// Page Page number
+	Page *PageParam `form:"page,omitempty" json:"page,omitempty"`
+
+	// Limit Number of items per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Search Search term to filter tasks by name or description
+	Search *string `form:"search,omitempty" json:"search,omitempty"`
+
+	// Status Filter tasks by status
+	Status *TaskStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Priority Filter tasks by priority
+	Priority *TaskPriority `form:"priority,omitempty" json:"priority,omitempty"`
+
+	// StartDate Filter tasks by start date (inclusive)
+	StartDate *openapi_types.Date `form:"start_date,omitempty" json:"start_date,omitempty"`
+
+	// EndDate Filter tasks by end date (inclusive)
+	EndDate *openapi_types.Date `form:"end_date,omitempty" json:"end_date,omitempty"`
+
+	// SortBy Field to sort by
+	SortBy *GetTasksParamsSortBy `form:"sort_by,omitempty" json:"sort_by,omitempty"`
+
+	// SortOrder Sort order
+	SortOrder *GetTasksParamsSortOrder `form:"sort_order,omitempty" json:"sort_order,omitempty"`
+}
+
+// GetTasksParamsSortBy defines parameters for GetTasks.
+type GetTasksParamsSortBy string
+
+// GetTasksParamsSortOrder defines parameters for GetTasks.
+type GetTasksParamsSortOrder string
+
 // PostAuthRefreshTokenJSONRequestBody defines body for PostAuthRefreshToken for application/json ContentType.
 type PostAuthRefreshTokenJSONRequestBody PostAuthRefreshTokenJSONBody
+
+// PostFocusSessionsJSONRequestBody defines body for PostFocusSessions for application/json ContentType.
+type PostFocusSessionsJSONRequestBody = CreateFocusSessionRequest
 
 // PostLoginJSONRequestBody defines body for PostLogin for application/json ContentType.
 type PostLoginJSONRequestBody PostLoginJSONBody

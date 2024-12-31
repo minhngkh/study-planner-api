@@ -3,6 +3,7 @@ package auth
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"os"
 	"sync"
 	"time"
@@ -131,7 +132,12 @@ type RequestApplication struct {
 	Host string `json:"request_host,omitempty"`
 }
 
-func CreateOauth2StateToken(app RequestApplication) (JwtToken, error) {
+type StateToken struct {
+	RequestApplication
+	AuthProvider string `json:"auth_provider"`
+}
+
+func CreateOauth2StateToken(app RequestApplication, provider string) (JwtToken, error) {
 	curTime := time.Now()
 
 	token, err := EncryptJwtToken(
@@ -140,11 +146,33 @@ func CreateOauth2StateToken(app RequestApplication) (JwtToken, error) {
 			Expiry:   jwt.NewNumericDate(curTime.Add(oauth2StateTokenDuration)),
 			IssuedAt: jwt.NewNumericDate(curTime),
 		},
-		app,
+		StateToken{
+			RequestApplication: app,
+			AuthProvider:       provider,
+		},
 	)
 	if err != nil {
 		return JwtToken{}, err
 	}
 
 	return token, nil
+}
+
+var (
+	ErrInvalidStateToken  = errors.New("invalid state token")
+	ErrMismatchedProvider = errors.New("mismatched provider")
+)
+
+func ValidateOauth2StateToken(token string, provider string) (RequestApplication, error) {
+	var stateToken StateToken
+	_, err := ValidateEncryptedJwtToken(encryptionKey, token, &stateToken)
+	if err != nil {
+		return RequestApplication{}, ErrInvalidStateToken
+	}
+
+	if stateToken.AuthProvider != provider {
+		return RequestApplication{}, ErrMismatchedProvider
+	}
+
+	return stateToken.RequestApplication, nil
 }
