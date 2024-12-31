@@ -43,11 +43,11 @@ type AuthTokens struct {
 // CreateFocusSessionRequest defines model for CreateFocusSessionRequest.
 type CreateFocusSessionRequest struct {
 	// BreakDuration Break duration in seconds
-	BreakDuration *int  `json:"break_duration,omitempty"`
-	TaskId        int32 `json:"task_id"`
+	BreakDuration *int32 `json:"break_duration,omitempty"`
+	TaskId        int32  `json:"task_id"`
 
 	// TimerDuration Duration in seconds
-	TimerDuration int `json:"timer_duration"`
+	TimerDuration int32 `json:"timer_duration"`
 }
 
 // CreateTaskRequest defines model for CreateTaskRequest.
@@ -68,6 +68,12 @@ type DefaultResponse struct {
 	Message *string `json:"message,omitempty"`
 }
 
+// EndFocusSessionRequest defines model for EndFocusSessionRequest.
+type EndFocusSessionRequest struct {
+	// FocusDuration Elapsed focus duration in seconds for early ending
+	FocusDuration int32 `json:"focus_duration"`
+}
+
 // FocusAnalytics defines model for FocusAnalytics.
 type FocusAnalytics struct {
 	AiFeedback *struct {
@@ -83,25 +89,28 @@ type FocusAnalytics struct {
 	TaskStatusCounts *map[string]int `json:"task_status_counts,omitempty"`
 
 	// TotalEstimatedTime Total estimated time in seconds
-	TotalEstimatedTime *int `json:"total_estimated_time,omitempty"`
+	TotalEstimatedTime *int32 `json:"total_estimated_time,omitempty"`
 
 	// TotalTimeSpent Total time spent in seconds
-	TotalTimeSpent *int `json:"total_time_spent,omitempty"`
+	TotalTimeSpent *int32 `json:"total_time_spent,omitempty"`
 }
 
 // FocusSession defines model for FocusSession.
 type FocusSession struct {
 	// BreakDuration Break duration in seconds
-	BreakDuration *int                `json:"break_duration,omitempty"`
-	EndedAt       *time.Time          `json:"ended_at,omitempty"`
+	BreakDuration *int32     `json:"break_duration,omitempty"`
+	CreatedAt     *time.Time `json:"created_at,omitempty"`
+
+	// FocusDuration Elapsed focus duration in seconds
+	FocusDuration *int32              `json:"focus_duration,omitempty"`
 	Id            *int32              `json:"id,omitempty"`
-	StartedAt     *time.Time          `json:"started_at,omitempty"`
 	Status        *FocusSessionStatus `json:"status,omitempty"`
 	TaskId        *int32              `json:"task_id,omitempty"`
 
 	// TimerDuration Duration in seconds
-	TimerDuration *int   `json:"timer_duration,omitempty"`
-	UserId        *int32 `json:"user_id,omitempty"`
+	TimerDuration *int32     `json:"timer_duration,omitempty"`
+	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
+	UserId        *int32     `json:"user_id,omitempty"`
 }
 
 // FocusSessionStatus defines model for FocusSessionStatus.
@@ -273,6 +282,9 @@ type PostAuthRefreshTokenJSONRequestBody PostAuthRefreshTokenJSONBody
 
 // PostFocusSessionsJSONRequestBody defines body for PostFocusSessions for application/json ContentType.
 type PostFocusSessionsJSONRequestBody = CreateFocusSessionRequest
+
+// PostFocusSessionsIdEndJSONRequestBody defines body for PostFocusSessionsIdEnd for application/json ContentType.
+type PostFocusSessionsIdEndJSONRequestBody = EndFocusSessionRequest
 
 // PostLoginJSONRequestBody defines body for PostLogin for application/json ContentType.
 type PostLoginJSONRequestBody PostLoginJSONBody

@@ -43,13 +43,6 @@ func NewEchoHandler() *echo.Echo {
 
 	e.Use(echoMiddleware.Recover())
 
-	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			log.Debug().Interface("request", c.Request().Host).Msg("request")
-			return next(c)
-		}
-	})
-
 	var allowOrigins []string
 	if os.Getenv("ENV") == "TEST" {
 		allowOrigins = []string{"*"}

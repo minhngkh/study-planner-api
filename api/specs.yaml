@@ -11,6 +11,10 @@ tags:
     description: User operations
   - name: tasks
     description: Task management operations
+  - name: focus
+    description: Focus session operations
+  - name: analytics
+    description: Analytics operations
 paths:
   /login:
     post:
@@ -32,6 +36,11 @@ paths:
       responses:
         '200':
           description: login response
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Refresh token
           content:
             application/json:
               schema:
@@ -88,8 +97,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /auth/refresh-token:
     post:
       tags:
@@ -117,41 +126,17 @@ paths:
       responses:
         '200':
           description: New tokens generated successfully
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Refresh token
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthTokens'
-        '401':
-          description: Invalid or expired refresh token
         '403':
-          description: Token is valid but was not created by this system
-  /auth/google:
-    post:
-      tags:
-        - auth
-      summary: Authenticate with Google OAuth2 code
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              title: GoogleAuthRequest
-              type: object
-              properties:
-                code:
-                  type: string
-                  description: Google OAuth authorization code
-              required:
-                - code
-      responses:
-        '200':
-          description: Authentication successful
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthTokens'
-        '400':
-          description: Invalid or expired authorization code
+          description: Invalid or expired refresh token
   /logout:
     post:
       tags:
@@ -179,8 +164,18 @@ paths:
       responses:
         '200':
           description: Successfully logged out
-        '401':
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Delete refresh token cookie
+        '403':
           description: Invalid or expired refresh token
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Delete refresh token cookie
   /tasks:
     get:
       tags:
@@ -188,17 +183,75 @@ paths:
       summary: Get list of user's tasks
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search term to filter tasks by name or description
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/TaskStatus'
+          description: Filter tasks by status
+        - name: priority
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/TaskPriority'
+          description: Filter tasks by priority
+        - name: start_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter tasks by start date (inclusive)
+        - name: end_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter tasks by end date (inclusive)
+        - name: sort_by
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [created_at, start_time, end_time, priority]
+            default: created_at
+          description: Field to sort by
+        - name: sort_order
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort order
       responses:
         '200':
-          description: List of tasks
+          description: List of tasks with pagination metadata
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Task'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Task'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationResponse'
+        '400':
+          description: Invalid input
+        '403':
+          $ref: '#/components/responses/Forbidden'
     post:
       tags:
         - tasks
@@ -218,14 +271,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Task'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
         '400':
           description: Invalid input
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DefaultResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /tasks/{id}:
     put:
       tags:
@@ -249,8 +302,8 @@ paths:
       responses:
         '200':
           description: Task updated successfully
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           description: Task not found
           content:
@@ -273,20 +326,174 @@ paths:
       responses:
         '204':
           description: Task deleted successfully
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           description: Task not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DefaultResponse'
+  /auth/google/authorize:
+    get:
+      tags:
+        - auth
+      summary: Initiate Google OAuth2 login flow
+      description: Redirects the user to Google's login page
+      responses:
+        '303':
+          description: Redirect to Google login page
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: CSRF token cookie
+            Location:
+              schema:
+                type: string
+              description: Google OAuth2 authorization URL
+  /auth/google/callback:
+    get:
+      tags:
+        - auth
+      summary: Handle Google OAuth2 callback
+      description: Handles the callback from Google OAuth2 and creates/logs in the user
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Authorization code from Google
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+          description: State parameter for CSRF protection
+      responses:
+        '200':
+          description: User logged in successfully
+          content:
+            text/html:
+              schema:
+                type: string
+                example: Authenticated with Google successfully
+        '301':
+          description: Redirect to frontend with auth tokens in URL
+          headers:
+            Location:
+              schema:
+                type: string
+                example: https://website.com#access_token=...&refresh_token=...
+              description: Frontend URL with auth tokens
+              
+        '400':
+          description: Invalid authorization code or state mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefaultResponse'
+  /focus-sessions:
+    post:
+      tags:
+        - focus
+      summary: Start a new focus session
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFocusSessionRequest'
+      responses:
+        '201':
+          description: Focus session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FocusSession'
+        '400':
+          description: Invalid input or task not in progress
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Task not found or task not belong to user
+
+  /focus-sessions/{id}/end:
+    post:
+      tags:
+        - focus
+      summary: End an active focus session
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            x-go-type: int32
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndFocusSessionRequest'
+      responses:
+        '200':
+          description: Focus session ended successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FocusSession'
+        '400':
+          description: Invalid input or session is not active
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Session not found or not belong to user
+
+  /analytics/focus:
+    get:
+      tags:
+        - analytics
+      summary: Get focus session analytics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: start_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Focus session analytics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FocusAnalytics'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
   responses:
     NotFound:
       description: Endpoint not found
@@ -300,6 +507,32 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/DefaultResponse'
+    Forbidden:
+      description: Access token is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DefaultResponse'
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: Page number
+    LimitParam:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+      description: Number of items per page
   schemas:
     AuthTokens:
       type: object
@@ -336,6 +569,14 @@ components:
         created_at:
           type: string
           format: date-time
+    TaskPriority:
+      type: string
+      enum: ["High", "Medium", "Low"]
+      x-go-type: string
+    TaskStatus:
+      type: string
+      enum: ["Todo", "In Progress", "Completed", "Expired"]
+      x-go-type: string
     Task:
       type: object
       properties:
@@ -350,15 +591,13 @@ components:
         description:
           type: string
         priority:
-          type: string
-          # enum: [low, medium, high]
+          $ref: '#/components/schemas/TaskPriority'
         estimated_time:
           type: integer
           x-go-type: int32
           description: Estimated time in minutes
         status:
-          type: string
-          # enum: [todo, in_progress, done]
+          $ref: '#/components/schemas/TaskStatus'
         start_time:
           type: string
           format: date-time
@@ -383,15 +622,13 @@ components:
         description:
           type: string
         priority:
-          type: string
-          # enum: [low, medium, high]
+          $ref: '#/components/schemas/TaskPriority'
         estimated_time:
           type: integer
           x-go-type: int32
           description: Estimated time in minutes
         status:
-          type: string
-          # enum: [todo, in_progress, done]
+          $ref: '#/components/schemas/TaskStatus'
         start_time:
           type: string
           format: date-time
@@ -406,18 +643,131 @@ components:
         description:
           type: string
         priority:
-          type: string
-          # enum: [low, medium, high]
+          $ref: '#/components/schemas/TaskPriority'
         estimated_time:
           type: integer
           x-go-type: int32
           description: Estimated time in minutes
         status:
-          type: string
-          # enum: [todo, in_progress, done]
+          $ref: '#/components/schemas/TaskStatus'
         start_time:
           type: string
           format: date-time
         end_time:
           type: string
           format: date-time
+    PaginationResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of items
+        page:
+          type: integer
+          description: Current page number
+        limit:
+          type: integer
+          description: Number of items per page
+        total_pages:
+          type: integer
+          description: Total number of pages
+    FocusSessionStatus:
+      type: string
+      enum: ["active", "completed", "ended_early"]
+      x-go-type: string
+
+    FocusSession:
+      type: object
+      properties:
+        id:
+          type: integer
+          x-go-type: int32
+        user_id:
+          type: integer
+          x-go-type: int32
+        task_id:
+          type: integer
+          x-go-type: int32
+        timer_duration:
+          type: integer
+          description: Duration in seconds
+          x-go-type: int32
+        break_duration:
+          type: integer
+          description: Break duration in seconds
+          x-go-type: int32
+        status:
+          $ref: '#/components/schemas/FocusSessionStatus'
+        focus_duration:
+          type: integer
+          description: Elapsed focus duration in seconds
+          x-go-type: int32
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateFocusSessionRequest:
+      type: object
+      required:
+        - task_id
+        - timer_duration
+      properties:
+        task_id:
+          type: integer
+          x-go-type: int32
+        timer_duration:
+          type: integer
+          description: Duration in seconds
+          x-go-type: int32
+        break_duration:
+          type: integer
+          description: Break duration in seconds
+          x-go-type: int32
+
+    EndFocusSessionRequest:
+      type: object
+      required:
+        - focus_duration
+      properties:
+        focus_duration:
+          type: integer
+          description: Elapsed focus duration in seconds for early ending
+          x-go-type: int32
+
+    FocusAnalytics:
+      type: object
+      properties:
+        total_time_spent:
+          type: integer
+          description: Total time spent in seconds
+          x-go-type: int32
+        total_estimated_time:
+          type: integer
+          description: Total estimated time in seconds
+          x-go-type: int32
+        daily_time_spent:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Map of dates to seconds spent
+        task_status_counts:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Count of tasks in each status
+        ai_feedback:
+          type: object
+          properties:
+            strengths:
+              type: array
+              items:
+                type: string
+            improvement_areas:
+              type: array
+              items:
+                type: string
+            motivation:
+              type: string
