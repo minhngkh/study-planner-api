@@ -4,6 +4,8 @@ go 1.22.9
 
 require (
 	github.com/air-verse/air v1.52.3
+	github.com/aws/aws-lambda-go v1.47.0
+	github.com/awslabs/aws-lambda-go-api-proxy v0.16.2
 	github.com/getkin/kin-openapi v0.128.0
 	github.com/go-jose/go-jose/v4 v4.0.4
 	github.com/joho/godotenv v1.5.1
