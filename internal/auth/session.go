@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"study-planner-api/internal/auth/token"
 	db "study-planner-api/internal/database"
 	"study-planner-api/internal/model"
 )
@@ -10,7 +11,7 @@ var (
 	ErrMaliciousRefreshToken = errors.New("malicious refresh token")
 )
 
-func CreateSession(userID int32, refreshToken JwtToken) error {
+func CreateSession(userID int32, refreshToken token.JwtToken) error {
 	expirationTime := refreshToken.Expiry.Time() // ok to be nill
 
 	result := db.Instance().Create(&model.UserSession{
@@ -25,7 +26,7 @@ func CreateSession(userID int32, refreshToken JwtToken) error {
 	return nil
 }
 
-func UpdateSession(userID int32, oldRefreshTokenVal string, newRefreshToken JwtToken) error {
+func UpdateSession(userID int32, oldRefreshTokenVal string, newRefreshToken token.JwtToken) error {
 	expirationTime := newRefreshToken.Expiry.Time() // ok to be nill
 
 	result := db.Instance().
@@ -46,7 +47,7 @@ func UpdateSession(userID int32, oldRefreshTokenVal string, newRefreshToken JwtT
 	return nil
 }
 
-func VerifySession(userID int32, refreshToken JwtToken) error {
+func VerifySession(userID int32, refreshToken token.JwtToken) error {
 	var session model.UserSession
 	result := db.Instance().
 		Model(&model.UserSession{}).

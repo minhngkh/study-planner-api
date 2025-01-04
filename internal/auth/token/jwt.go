@@ -1,4 +1,4 @@
-package auth
+package token
 
 import (
 	"github.com/go-jose/go-jose/v4"

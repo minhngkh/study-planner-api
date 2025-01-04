@@ -4,23 +4,33 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
-	"study-planner-api/internal/auth"
+	"study-planner-api/internal/auth/token"
 	db "study-planner-api/internal/database"
 	"study-planner-api/internal/model"
 
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
+func redirectUrl() string {
+	if os.Getenv("ENV") == "development" {
+		return fmt.Sprintf("http://localhost:%s/auth/google/callback", os.Getenv("PORT"))
+	}
+	return fmt.Sprintf("%s/auth/google/callback", os.Getenv("DEPLOYMENT_URL"))
+}
+
 var (
 	config = oauth2.Config{
-		RedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"),
+		RedirectURL:  redirectUrl(),
 		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
 		Scopes: []string{
@@ -48,15 +58,16 @@ type StateToken struct {
 }
 
 func GoogleAuthEndpoint(stateToken string) string {
+	log.Info().Str("url", config.RedirectURL).Msg("Redirect URL")
 	return config.AuthCodeURL(stateToken)
 }
 
-func CreateGoogleStateToken(app auth.RequestApplication) (auth.JwtToken, error) {
-	return auth.CreateOauth2StateToken(app, "google")
+func CreateGoogleStateToken(app token.RequestApplication) (token.JwtToken, error) {
+	return token.CreateOauth2StateToken(app, "google")
 }
 
-func ValidateGoogleStateToken(token string) (auth.RequestApplication, error) {
-	return auth.ValidateOauth2StateToken(token, "google")
+func ValidateGoogleStateToken(stateToken string) (token.RequestApplication, error) {
+	return token.ValidateOauth2StateToken(stateToken, "google")
 }
 
 func ExchangeWithGoogleForAuthTokens(authCode string) (authToken string, refreshToken string, err error) {
@@ -112,10 +123,11 @@ func ValidateGoogleAccount(googleInfo GoogleUserInfo) (int32, error) {
 		Where("google_id = ?", googleInfo.ID).
 		First(&user)
 	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return linkGoogleAccount(googleInfo)
+		}
+
 		return -1, result.Error
-	}
-	if result.RowsAffected == 0 {
-		return linkGoogleAccount(googleInfo)
 	}
 
 	return user.ID, nil

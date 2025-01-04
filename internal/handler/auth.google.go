@@ -8,6 +8,7 @@ import (
 	"study-planner-api/internal/api"
 	"study-planner-api/internal/auth"
 	"study-planner-api/internal/auth/provider"
+	"study-planner-api/internal/auth/token"
 
 	"github.com/rs/zerolog/log"
 )
@@ -16,7 +17,7 @@ func (s *Handler) GetAuthGoogleAuthorize(ctx context.Context, request api.GetAut
 	hostUrl := api.HostUrlOfRequest(ctx)
 	log.Debug().Msgf("Host URL: %s", hostUrl)
 
-	stateToken, err := provider.CreateGoogleStateToken(auth.RequestApplication{Host: hostUrl})
+	stateToken, err := provider.CreateGoogleStateToken(token.RequestApplication{Host: hostUrl})
 	if err != nil {
 		return nil, err
 	}
@@ -40,6 +41,7 @@ func (s *Handler) GetAuthGoogleAuthorize(ctx context.Context, request api.GetAut
 
 }
 
+// TODO: check cookie and generalize to not only support web popups
 func (s *Handler) GetAuthGoogleCallback(ctx context.Context, request api.GetAuthGoogleCallbackRequestObject) (api.GetAuthGoogleCallbackResponseObject, error) {
 	authCode := request.Params.Code
 	stateToken := request.Params.State
@@ -64,7 +66,7 @@ func (s *Handler) GetAuthGoogleCallback(ctx context.Context, request api.GetAuth
 		return nil, errors.Join(err, errors.New("failed to validate google account"))
 	}
 
-	accessToken, refreshToken, err := auth.CreateAuthTokens(auth.AuthInfo{UserID: userID})
+	accessToken, refreshToken, err := token.CreateAuthTokens(token.AuthInfo{UserID: userID})
 	if err != nil {
 		return nil, err
 	}

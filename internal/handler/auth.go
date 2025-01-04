@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"study-planner-api/internal/api"
 	"study-planner-api/internal/auth"
+	"study-planner-api/internal/auth/token"
 	"study-planner-api/internal/user"
 	"study-planner-api/internal/utils"
 	"time"
@@ -31,7 +32,7 @@ func (s *Handler) PostRegister(
 		return nil, err
 	}
 
-	accessToken, refreshToken, err := auth.CreateAuthTokens(auth.AuthInfo{UserID: userId})
+	accessToken, refreshToken, err := token.CreateAuthTokens(token.AuthInfo{UserID: userId})
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +70,7 @@ func (s *Handler) PostLogin(
 		}
 	}
 
-	accessToken, refreshToken, err := auth.CreateAuthTokens(auth.AuthInfo{UserID: user.ID})
+	accessToken, refreshToken, err := token.CreateAuthTokens(token.AuthInfo{UserID: user.ID})
 	if err != nil {
 		return nil, err
 	}
@@ -111,12 +112,12 @@ func (s *Handler) PostAuthRefreshToken(
 		return api.PostAuthRefreshToken403Response{}, nil
 	}
 
-	info, _, err := auth.ValidateRefreshToken(refreshToken)
+	info, _, err := token.ValidateRefreshToken(refreshToken)
 	if err != nil {
 		return api.PostAuthRefreshToken403Response{}, nil
 	}
 
-	newAccessToken, newRefreshToken, err := auth.CreateAuthTokens(auth.AuthInfo{
+	newAccessToken, newRefreshToken, err := token.CreateAuthTokens(token.AuthInfo{
 		UserID: info.UserID,
 	})
 	if err != nil {
@@ -173,7 +174,7 @@ func (s *Handler) PostLogout(
 		}, nil
 	}
 
-	info, _, err := auth.ValidateRefreshToken(refreshToken)
+	info, _, err := token.ValidateRefreshToken(refreshToken)
 	if err != nil {
 		return api.PostLogout403Response{
 			Headers: api.PostLogout403ResponseHeaders{

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"os"
 	"strings"
-	"study-planner-api/internal/auth"
+	"study-planner-api/internal/auth/token"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/labstack/echo/v4"
@@ -115,7 +115,7 @@ func NewEchoHandler() *echo.Echo {
 					return errors.New("unimplemented security scheme")
 				}
 
-				info, _, err := auth.ValidateAccessToken(accessToken)
+				info, _, err := token.ValidateAccessToken(accessToken)
 				if err != nil {
 					return errors.New("invalid token")
 				}
