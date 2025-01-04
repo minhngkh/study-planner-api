@@ -4,6 +4,7 @@ import (
 	"errors"
 	db "study-planner-api/internal/database"
 	"study-planner-api/internal/model"
+	"study-planner-api/internal/utils"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -27,8 +28,8 @@ func CreateUser(email string, password string) (id int32, err error) {
 	}
 
 	user := model.User{
-		Email:    email,
-		Password: string(hashedPassword),
+		Email:    &email,
+		Password: utils.Ptr(string(hashedPassword)),
 	}
 
 	// Create user in database

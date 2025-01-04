@@ -13,6 +13,7 @@ func main() {
 
 	g := gen.NewGenerator(gen.Config{
 		// ModelPkgPath: "internal/model",
+		FieldNullable: true,
 	})
 
 	g.WithTableNameStrategy(func(tableName string) string {

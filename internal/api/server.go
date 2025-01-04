@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"study-planner-api/internal/auth"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -47,7 +48,7 @@ func NewEchoHandler() *echo.Echo {
 	if os.Getenv("ENV") == "TEST" {
 		allowOrigins = []string{"*"}
 	} else {
-		allowOrigins = []string{"http://localhost:3000"}
+		allowOrigins = strings.Split(os.Getenv("ALLOW_ORIGINS"), " ")
 	}
 
 	e.Use(echoMiddleware.CORSWithConfig(echoMiddleware.CORSConfig{

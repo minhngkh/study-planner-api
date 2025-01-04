@@ -123,7 +123,7 @@ func ValidateGoogleAccount(googleInfo GoogleUserInfo) (int32, error) {
 
 func linkGoogleAccount(googleInfo GoogleUserInfo) (int32, error) {
 	user := model.User{
-		GoogleID: googleInfo.ID,
+		GoogleID: &googleInfo.ID,
 	}
 
 	var users []model.User
@@ -137,7 +137,7 @@ func linkGoogleAccount(googleInfo GoogleUserInfo) (int32, error) {
 		return -1, result.Error
 	}
 	if result.RowsAffected == 0 {
-		user.Email = googleInfo.Email
+		user.Email = &googleInfo.Email
 
 		result = db.Instance().
 			Select("email", "google_id").

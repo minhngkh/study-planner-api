@@ -436,6 +436,7 @@ paths:
             type: integer
             x-go-type: int32
       requestBody:
+        description: Only include the body if you want to end the session early, otherwise send request without it
         required: false
         content:
           application/json:
@@ -729,8 +730,6 @@ components:
 
     EndFocusSessionRequest:
       type: object
-      required:
-        - focus_duration
       properties:
         focus_duration:
           type: integer

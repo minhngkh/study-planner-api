@@ -71,7 +71,7 @@ type DefaultResponse struct {
 // EndFocusSessionRequest defines model for EndFocusSessionRequest.
 type EndFocusSessionRequest struct {
 	// FocusDuration Elapsed focus duration in seconds for early ending
-	FocusDuration int32 `json:"focus_duration"`
+	FocusDuration *int32 `json:"focus_duration,omitempty"`
 }
 
 // FocusAnalytics defines model for FocusAnalytics.

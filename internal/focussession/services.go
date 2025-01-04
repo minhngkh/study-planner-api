@@ -51,7 +51,12 @@ func CreateSession(session NewSession) (model.FocusSession, error) {
 	// if result.RowsAffected != 0 {
 	// 	return model.FocusSession{}, ErrTaskNotFound
 	// }
-	if taskInfo.UserID != session.UserID {
+
+	if taskInfo.UserID == nil {
+		return model.FocusSession{}, ErrTaskNotBelongToUser
+	}
+
+	if *taskInfo.UserID != session.UserID {
 		return model.FocusSession{}, ErrTaskNotBelongToUser
 	}
 	if task.Status(taskInfo.Status) != task.StatusInProgress {
@@ -59,12 +64,12 @@ func CreateSession(session NewSession) (model.FocusSession, error) {
 	}
 
 	newSession := model.FocusSession{
-		TaskID:        session.TaskID,
+		TaskID:        &session.TaskID,
 		TimerDuration: session.TimerDuration,
 		Status:        string(StatusActive),
 	}
 	if session.BreakDuration != nil {
-		newSession.BreakDuration = *session.BreakDuration
+		newSession.BreakDuration = session.BreakDuration
 	}
 
 	result = database.Instance().
@@ -123,10 +128,10 @@ func EndSession(session SessionToEnd) (model.FocusSession, error) {
 	endedSession := model.FocusSession{}
 	if session.EndedEarly != nil {
 		endedSession.Status = string(StatusEndedEearly)
-		endedSession.FocusDuration = session.EndedEarly.FocusDuration
+		endedSession.FocusDuration = &session.EndedEarly.FocusDuration
 	} else {
 		endedSession.Status = string(StatusCompleted)
-		endedSession.FocusDuration = sessionInfo.TimerDuration
+		endedSession.FocusDuration = &sessionInfo.TimerDuration
 	}
 
 	result = database.Instance().

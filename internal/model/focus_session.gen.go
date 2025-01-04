@@ -12,14 +12,14 @@ const TableNameFocusSession = "focus_session"
 
 // FocusSession mapped from table <focus_session>
 type FocusSession struct {
-	ID            int32     `gorm:"column:id;primaryKey" json:"id"`
-	TaskID        int32     `gorm:"column:task_id" json:"task_id"`
-	TimerDuration int32     `gorm:"column:timer_duration;not null" json:"timer_duration"`
-	BreakDuration int32     `gorm:"column:break_duration" json:"break_duration"`
-	Status        string    `gorm:"column:status;not null" json:"status"`
-	FocusDuration int32     `gorm:"column:focus_duration" json:"focus_duration"`
-	CreatedAt     time.Time `gorm:"column:created_at" json:"created_at"`
-	UpdatedAt     time.Time `gorm:"column:updated_at" json:"updated_at"`
+	ID            int32      `gorm:"column:id;primaryKey" json:"id"`
+	TaskID        *int32     `gorm:"column:task_id" json:"task_id"`
+	TimerDuration int32      `gorm:"column:timer_duration;not null" json:"timer_duration"`
+	BreakDuration *int32     `gorm:"column:break_duration" json:"break_duration"`
+	Status        string     `gorm:"column:status;not null" json:"status"`
+	FocusDuration *int32     `gorm:"column:focus_duration" json:"focus_duration"`
+	CreatedAt     *time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt     *time.Time `gorm:"column:updated_at" json:"updated_at"`
 }
 
 // TableName FocusSession's table name

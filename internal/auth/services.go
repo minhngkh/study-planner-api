@@ -18,6 +18,7 @@ type LoginInfo struct {
 var (
 	ErrUserNotFound      = errors.New("user not found")
 	ErrIncorrectPassword = errors.New("incorrect password")
+	ErrUserHasNoPassword = errors.New("user has no password")
 )
 
 func VerifyLoginInfo(info LoginInfo) (model.User, error) {
@@ -31,7 +32,11 @@ func VerifyLoginInfo(info LoginInfo) (model.User, error) {
 		return model.User{}, result.Error
 	}
 
-	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(info.Password))
+	if user.Password == nil {
+		return model.User{}, ErrUserHasNoPassword
+	}
+
+	err := bcrypt.CompareHashAndPassword([]byte(*user.Password), []byte(info.Password))
 	if err != nil {
 		return model.User{}, ErrIncorrectPassword
 	}

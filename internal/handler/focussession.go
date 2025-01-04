@@ -32,13 +32,13 @@ func (s *Handler) PostFocusSessions(ctx context.Context, request api.PostFocusSe
 	return api.PostFocusSessions201JSONResponse{
 		Id:            &session.ID,
 		UserId:        &authInfo.ID,
-		TaskId:        &session.TaskID,
+		TaskId:        session.TaskID,
 		TimerDuration: &session.TimerDuration,
-		BreakDuration: &session.BreakDuration,
+		BreakDuration: session.BreakDuration,
 		Status:        &session.Status,
-		FocusDuration: &session.FocusDuration,
-		CreatedAt:     &session.CreatedAt,
-		UpdatedAt:     &session.UpdatedAt,
+		FocusDuration: session.FocusDuration,
+		CreatedAt:     session.CreatedAt,
+		UpdatedAt:     session.UpdatedAt,
 	}, nil
 }
 
@@ -50,9 +50,9 @@ func (s *Handler) PostFocusSessionsIdEnd(ctx context.Context, request api.PostFo
 		UserID:    authInfo.ID,
 		SessionID: request.Id,
 	}
-	if request.Body != nil {
+	if request.Body != nil && request.Body.FocusDuration != nil {
 		session.EndedEarly = &focussession.EndEarly{
-			FocusDuration: request.Body.FocusDuration,
+			FocusDuration: *request.Body.FocusDuration,
 		}
 	}
 
@@ -71,12 +71,12 @@ func (s *Handler) PostFocusSessionsIdEnd(ctx context.Context, request api.PostFo
 	return api.PostFocusSessionsIdEnd200JSONResponse{
 		Id:            &endedSession.ID,
 		UserId:        &authInfo.ID,
-		TaskId:        &endedSession.TaskID,
+		TaskId:        endedSession.TaskID,
 		TimerDuration: &endedSession.TimerDuration,
-		BreakDuration: &endedSession.BreakDuration,
+		BreakDuration: endedSession.BreakDuration,
 		Status:        &endedSession.Status,
-		FocusDuration: &endedSession.FocusDuration,
-		CreatedAt:     &endedSession.CreatedAt,
-		UpdatedAt:     &endedSession.UpdatedAt,
+		FocusDuration: endedSession.FocusDuration,
+		CreatedAt:     endedSession.CreatedAt,
+		UpdatedAt:     endedSession.UpdatedAt,
 	}, nil
 }

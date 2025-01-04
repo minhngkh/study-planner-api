@@ -16,7 +16,7 @@ func CreateSession(userID int32, refreshToken JwtToken) error {
 	result := db.Instance().Create(&model.UserSession{
 		UserID:       userID,
 		RefreshToken: string(refreshToken.Value),
-		ExpiresAt:    expirationTime,
+		ExpiresAt:    &expirationTime,
 	})
 	if result.Error != nil {
 		return result.Error
@@ -33,7 +33,7 @@ func UpdateSession(userID int32, oldRefreshTokenVal string, newRefreshToken JwtT
 		Where("user_id = ? AND refresh_token = ?", userID, oldRefreshTokenVal).
 		Updates(&model.UserSession{
 			RefreshToken: newRefreshToken.Value,
-			ExpiresAt:    expirationTime,
+			ExpiresAt:    &expirationTime,
 		}).
 		Limit(1)
 	if result.Error != nil {

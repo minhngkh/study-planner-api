@@ -91,13 +91,17 @@ func (s *Handler) GetTasks(ctx context.Context, request api.GetTasksRequestObjec
 	apiTasks := make([]api.Task, len(tasks))
 	for i, t := range tasks {
 		apiTasks[i] = api.Task{
-			Id:          &t.ID,
-			Name:        &t.Name,
-			Description: &t.Description,
-			StartTime:   &t.StartTime,
-			EndTime:     &t.EndTime,
-			Status:      &t.Status,
-			UserId:      &t.UserID,
+			Id:            &t.ID,
+			Name:          &t.Name,
+			Description:   t.Description,
+			StartTime:     t.StartTime,
+			EndTime:       t.EndTime,
+			Status:        &t.Status,
+			UserId:        t.UserID,
+			CreatedAt:     t.CreatedAt,
+			UpdatedAt:     t.UpdatedAt,
+			EstimatedTime: t.EstimatedTime,
+			Priority:      &t.Priority,
 		}
 	}
 
@@ -117,14 +121,14 @@ func (s *Handler) PostTasks(ctx context.Context, request api.PostTasksRequestObj
 	authInfo := api.AuthInfoOfRequest(ctx)
 
 	newTask := model.Task{
-		UserID:        authInfo.ID,
+		UserID:        &authInfo.ID,
 		Name:          request.Body.Name,
-		Description:   *request.Body.Description,
-		StartTime:     *request.Body.StartTime,
-		EndTime:       *request.Body.EndTime,
+		Description:   request.Body.Description,
+		StartTime:     request.Body.StartTime,
+		EndTime:       request.Body.EndTime,
 		Status:        request.Body.Status,
 		Priority:      request.Body.Priority,
-		EstimatedTime: *request.Body.EstimatedTime,
+		EstimatedTime: request.Body.EstimatedTime,
 	}
 
 	resTask, err := task.CreateTask(newTask)
@@ -134,16 +138,16 @@ func (s *Handler) PostTasks(ctx context.Context, request api.PostTasksRequestObj
 
 	return api.PostTasks201JSONResponse{
 		Id:            &resTask.ID,
-		CreatedAt:     &resTask.CreatedAt,
-		Description:   &resTask.Description,
-		EndTime:       &resTask.EndTime,
-		EstimatedTime: &resTask.EstimatedTime,
+		CreatedAt:     resTask.CreatedAt,
+		Description:   resTask.Description,
+		EndTime:       resTask.EndTime,
+		EstimatedTime: resTask.EstimatedTime,
 		Name:          &resTask.Name,
 		Priority:      &resTask.Priority,
-		StartTime:     &resTask.StartTime,
+		StartTime:     resTask.StartTime,
 		Status:        &resTask.Status,
-		UpdatedAt:     &resTask.UpdatedAt,
-		UserId:        &resTask.UserID,
+		UpdatedAt:     resTask.UpdatedAt,
+		UserId:        resTask.UserID,
 	}, nil
 }
 
@@ -152,15 +156,30 @@ func (s *Handler) PutTasksId(ctx context.Context, request api.PutTasksIdRequestO
 	authInfo := api.AuthInfoOfRequest(ctx)
 
 	taskToUpdate := model.Task{
-		ID:            request.Id,
-		UserID:        authInfo.ID,
-		Name:          *request.Body.Name,
-		Description:   *request.Body.Description,
-		StartTime:     *request.Body.StartTime,
-		EndTime:       *request.Body.EndTime,
-		Status:        *request.Body.Status,
-		Priority:      *request.Body.Priority,
-		EstimatedTime: *request.Body.EstimatedTime,
+		ID:     request.Id,
+		UserID: &authInfo.ID,
+	}
+
+	if request.Body.Name != nil {
+		taskToUpdate.Name = *request.Body.Name
+	}
+	if request.Body.Description != nil {
+		taskToUpdate.Description = request.Body.Description
+	}
+	if request.Body.Priority != nil {
+		taskToUpdate.Priority = *request.Body.Priority
+	}
+	if request.Body.EstimatedTime != nil {
+		taskToUpdate.EstimatedTime = request.Body.EstimatedTime
+	}
+	if request.Body.Status != nil {
+		taskToUpdate.Status = *request.Body.Status
+	}
+	if request.Body.StartTime != nil {
+		taskToUpdate.StartTime = request.Body.StartTime
+	}
+	if request.Body.EndTime != nil {
+		taskToUpdate.EndTime = request.Body.EndTime
 	}
 
 	err := task.UpdateTask(taskToUpdate)
