@@ -33,3 +33,6 @@ lambda.zip
 
 # OS X generated file
 .DS_Store
+
+# Custom
+cmd/playground/
