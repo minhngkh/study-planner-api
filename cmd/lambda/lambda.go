@@ -11,12 +11,15 @@ import (
 	"study-planner-api/internal/api"
 	"study-planner-api/internal/database"
 	handlerImpl "study-planner-api/internal/handler"
+	"study-planner-api/internal/utils"
 )
 
 var httpLambda *httpadapter.HandlerAdapterV2
 
 func init() {
 	log.Printf("Echo cold start")
+
+	utils.LoadEnv()
 
 	database.Instance()
 

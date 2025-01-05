@@ -14,7 +14,6 @@ import (
 	"study-planner-api/internal/model"
 	"study-planner-api/internal/utils"
 
-	_ "github.com/joho/godotenv/autoload"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"

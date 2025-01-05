@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"study-planner-api/internal/api"
 	handlerImpl "study-planner-api/internal/handler"
+	"study-planner-api/internal/utils"
 	"syscall"
 	"time"
 
@@ -45,6 +46,8 @@ func setupPrettyZeroLog() {
 }
 
 func main() {
+	utils.LoadEnv()
+
 	setupPrettyZeroLog()
 
 	impl := api.NewStrictHandler(handlerImpl.NewHandler(), nil)

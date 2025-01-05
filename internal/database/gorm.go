@@ -3,7 +3,6 @@ package database
 import (
 	"os"
 
-	_ "github.com/joho/godotenv/autoload"
 	"github.com/rs/zerolog/log"
 	_ "github.com/tursodatabase/libsql-client-go/libsql"
 	"gorm.io/driver/sqlite"

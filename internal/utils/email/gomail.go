@@ -3,7 +3,6 @@ package email
 import (
 	"os"
 
-	_ "github.com/joho/godotenv/autoload"
 	"gopkg.in/gomail.v2"
 )
 

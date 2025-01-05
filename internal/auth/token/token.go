@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v4/jwt"
-	_ "github.com/joho/godotenv/autoload"
 )
 
 type AuthInfo struct {

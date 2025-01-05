@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-
-	_ "github.com/joho/godotenv/autoload"
 )
 
 func GetServerHost() *url.URL {
