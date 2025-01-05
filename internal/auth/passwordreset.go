@@ -134,3 +134,29 @@ func ResetPassword(userId int32, resetToken string, newPassword string) error {
 
 	return nil
 }
+
+func VerifyPasswordResetToken(userId int32, resetToken string) error {
+	var t model.Token
+	result := database.Instance().
+		Select("token.*").
+		Model(&model.User{}).
+		Joins("INNER JOIN token ON user.id = token.user_id").
+		Where("user.id = ? AND token.purpose = ?", userId, token.PasswordReset.String()).
+		First(&t)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return ErrInvalidToken
+		}
+		return result.Error
+	}
+
+	if !token.VerifyHash(resetToken, t.TokenHash) {
+		return ErrInvalidToken
+	}
+
+	if t.ExpiresAt.Before(time.Now()) {
+		return ErrExpiredToken
+	}
+
+	return nil
+}

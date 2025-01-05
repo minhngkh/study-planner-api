@@ -44,7 +44,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthTokens"
+                allOf:
+                  - $ref: "#/components/schemas/AuthTokens"
+                  - type: object
+                    properties:
+                      is_activated:
+                        type: boolean
+                        description: Whether the user's email is activated
         "400":
           description: Invalid email/password supplied
   /register:
@@ -97,7 +103,7 @@ paths:
           description: Email already activated or too many requests
         "403":
           $ref: "#/components/responses/Forbidden"
-  /activation/:
+  /activation:
     post:
       tags:
         - auth
@@ -177,6 +183,33 @@ paths:
           description: Password reset successful
         "400":
           description: Password validation failed
+        "403":
+          $ref: "#/components/responses/TokenError"
+  /auth/password-reset/verify:
+    post:
+      tags:
+        - auth
+      summary: Verify password reset token validity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - token
+              properties:
+                user_id:
+                  type: integer
+                  x-go-type: int32
+                  description: User ID
+                token:
+                  type: string
+                  description: Reset token received via email
+      responses:
+        "200":
+          description: Token is valid
         "403":
           $ref: "#/components/responses/TokenError"
   /profile:

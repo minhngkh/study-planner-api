@@ -251,6 +251,15 @@ type PostAuthPasswordResetConfirmJSONBody struct {
 	UserId int32 `json:"user_id"`
 }
 
+// PostAuthPasswordResetVerifyJSONBody defines parameters for PostAuthPasswordResetVerify.
+type PostAuthPasswordResetVerifyJSONBody struct {
+	// Token Reset token received via email
+	Token string `json:"token"`
+
+	// UserId User ID
+	UserId int32 `json:"user_id"`
+}
+
 // PostAuthRefreshTokenJSONBody defines parameters for PostAuthRefreshToken.
 type PostAuthRefreshTokenJSONBody struct {
 	RefreshToken *string `json:"refresh_token,omitempty"`
@@ -329,6 +338,9 @@ type PostAuthPasswordResetJSONRequestBody PostAuthPasswordResetJSONBody
 
 // PostAuthPasswordResetConfirmJSONRequestBody defines body for PostAuthPasswordResetConfirm for application/json ContentType.
 type PostAuthPasswordResetConfirmJSONRequestBody PostAuthPasswordResetConfirmJSONBody
+
+// PostAuthPasswordResetVerifyJSONRequestBody defines body for PostAuthPasswordResetVerify for application/json ContentType.
+type PostAuthPasswordResetVerifyJSONRequestBody PostAuthPasswordResetVerifyJSONBody
 
 // PostAuthRefreshTokenJSONRequestBody defines body for PostAuthRefreshToken for application/json ContentType.
 type PostAuthRefreshTokenJSONRequestBody PostAuthRefreshTokenJSONBody

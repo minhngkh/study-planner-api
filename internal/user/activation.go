@@ -107,12 +107,12 @@ func ActivateAccount(userId int32, activationCode string) error {
 		First(&t)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return ErrUserNotFound
+			return ErrInvalidToken
 		}
 		return result.Error
 	}
 
-	if token.VerifyHash(activationCode, t.TokenHash) {
+	if !token.VerifyHash(activationCode, t.TokenHash) {
 		return ErrInvalidToken
 	}
 

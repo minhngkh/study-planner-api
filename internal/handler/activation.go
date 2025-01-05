@@ -21,13 +21,13 @@ func (s *Handler) PostActivation(
 				TokenErrorJSONResponse: api.TokenErrorJSONResponse{
 					Type: utils.Ptr(api.ExpiredToken),
 				},
-			}, err
+			}, nil
 		case errors.Is(err, user.ErrInvalidToken):
 			return api.PostActivation403JSONResponse{
 				TokenErrorJSONResponse: api.TokenErrorJSONResponse{
 					Type: utils.Ptr(api.InvalidToken),
 				},
-			}, err
+			}, nil
 		default:
 			return nil, err
 		}

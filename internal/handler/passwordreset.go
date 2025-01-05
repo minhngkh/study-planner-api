@@ -68,3 +68,33 @@ func (s *Handler) PostAuthPasswordResetConfirm(
 
 	return api.PostAuthPasswordResetConfirm200Response{}, nil
 }
+
+func (s *Handler) PostAuthPasswordResetVerify(
+	ctx context.Context,
+	request api.PostAuthPasswordResetVerifyRequestObject,
+) (api.PostAuthPasswordResetVerifyResponseObject, error) {
+	userId := request.Body.UserId
+	token := request.Body.Token
+
+	err := auth.VerifyPasswordResetToken(userId, token)
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrInvalidToken):
+			return api.PostAuthPasswordResetVerify403JSONResponse{
+				TokenErrorJSONResponse: api.TokenErrorJSONResponse{
+					Type: utils.Ptr(api.InvalidToken),
+				},
+			}, nil
+		case errors.Is(err, auth.ErrExpiredToken):
+			return api.PostAuthPasswordResetVerify403JSONResponse{
+				TokenErrorJSONResponse: api.TokenErrorJSONResponse{
+					Type: utils.Ptr(api.ExpiredToken),
+				},
+			}, nil
+		default:
+			return nil, err
+		}
+	}
+
+	return api.PostAuthPasswordResetVerify200Response{}, nil
+}

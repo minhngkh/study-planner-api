@@ -82,6 +82,8 @@ func CreateToken(userId int32, purpose TokenPurpose) (string, error) {
 		return "", result.Error
 	}
 
+	log.Info().Msgf("Token: %s", token)
+
 	return token, nil
 }
 

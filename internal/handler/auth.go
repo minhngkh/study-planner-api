@@ -76,6 +76,20 @@ func (s *Handler) PostLogin(
 		return nil, err
 	}
 
+	if !user.IsActivated {
+		return api.PostLogin200JSONResponse{
+			Body: struct {
+				AccessToken  *string "json:\"access_token,omitempty\""
+				IsActivated  *bool   "json:\"is_activated,omitempty\""
+				RefreshToken *string "json:\"refresh_token,omitempty\""
+			}{
+				AccessToken:  &accessToken.Value,
+				IsActivated:  &user.IsActivated,
+				RefreshToken: nil,
+			},
+		}, nil
+	}
+
 	err = auth.CreateSession(user.ID, refreshToken)
 	if err != nil {
 		return nil, err
@@ -92,8 +106,13 @@ func (s *Handler) PostLogin(
 		Headers: api.PostLogin200ResponseHeaders{
 			SetCookie: cookie.String(),
 		},
-		Body: api.AuthTokens{
+		Body: struct {
+			AccessToken  *string "json:\"access_token,omitempty\""
+			IsActivated  *bool   "json:\"is_activated,omitempty\""
+			RefreshToken *string "json:\"refresh_token,omitempty\""
+		}{
 			AccessToken:  &accessToken.Value,
+			IsActivated:  &user.IsActivated,
 			RefreshToken: &refreshToken.Value,
 		},
 	}, nil
