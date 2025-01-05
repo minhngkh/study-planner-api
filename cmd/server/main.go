@@ -9,11 +9,10 @@ import (
 	"strconv"
 	"study-planner-api/internal/api"
 	handlerImpl "study-planner-api/internal/handler"
-	"study-planner-api/internal/utils"
+	_ "study-planner-api/internal/utils/env"
 	"syscall"
 	"time"
 
-	_ "github.com/joho/godotenv/autoload"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -46,8 +45,6 @@ func setupPrettyZeroLog() {
 }
 
 func main() {
-	utils.LoadEnv()
-
 	setupPrettyZeroLog()
 
 	impl := api.NewStrictHandler(handlerImpl.NewHandler(), nil)

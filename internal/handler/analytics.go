@@ -7,7 +7,7 @@ import (
 	"study-planner-api/internal/model"
 )
 
-// GetAnalyticsFocus implements api.StrictServerInterface.
+// TODO: move services code to analytics package
 func (s *Handler) GetAnalyticsFocus(ctx context.Context, request api.GetAnalyticsFocusRequestObject) (api.GetAnalyticsFocusResponseObject, error) {
 	authInfo := api.AuthInfoOfRequest(ctx)
 	userID := authInfo.ID

@@ -17,12 +17,16 @@ func (s *Handler) PostActivation(
 	if err != nil {
 		switch {
 		case errors.Is(err, user.ErrExpiredToken):
-			return api.PostActivation400JSONResponse{
-				Type: utils.Ptr(api.ActivationErrorTypeExpiredToken),
+			return api.PostActivation403JSONResponse{
+				TokenErrorJSONResponse: api.TokenErrorJSONResponse{
+					Type: utils.Ptr(api.ExpiredToken),
+				},
 			}, err
 		case errors.Is(err, user.ErrInvalidToken):
-			return api.PostActivation400JSONResponse{
-				Type: utils.Ptr(api.ActivationErrorTypeInvalidToken),
+			return api.PostActivation403JSONResponse{
+				TokenErrorJSONResponse: api.TokenErrorJSONResponse{
+					Type: utils.Ptr(api.InvalidToken),
+				},
 			}, err
 		default:
 			return nil, err

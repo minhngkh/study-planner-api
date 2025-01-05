@@ -1,4 +1,4 @@
-package user
+package auth
 
 import (
 	"errors"
@@ -10,6 +10,7 @@ import (
 	"study-planner-api/internal/auth/token"
 	"study-planner-api/internal/database"
 	"study-planner-api/internal/model"
+	"study-planner-api/internal/user"
 	"study-planner-api/internal/utils"
 	"study-planner-api/internal/utils/email"
 	"time"
@@ -17,9 +18,9 @@ import (
 	"gorm.io/gorm"
 )
 
-func getActivationTemplate() *template.Template {
+func getPasswordResetTemplate() *template.Template {
 	curDir := utils.CurrentFileDir()
-	path := filepath.Join(curDir, "activation.template.html")
+	path := filepath.Join(curDir, "passwordreset.template.html")
 
 	tmpl, err := template.ParseFiles(path)
 	if err != nil {
@@ -29,8 +30,8 @@ func getActivationTemplate() *template.Template {
 	return tmpl
 }
 
-func getActivationCallbackUrl() *url.URL {
-	url, err := url.Parse(os.Getenv("ACTIVATION_CALLBACK_URL"))
+func getPasswordResetCallbackUrl() *url.URL {
+	url, err := url.Parse(os.Getenv("PASSWORD_RESET_CALLBACK_URL"))
 	if err != nil {
 		panic(err)
 	}
@@ -39,57 +40,52 @@ func getActivationCallbackUrl() *url.URL {
 }
 
 var (
-	ErrUserAlreadyActivated = errors.New("user already activated")
-	ErrUserNotFound         = errors.New("user not found")
-	ErrInvalidToken         = errors.New("invalid token")
-	ErrExpiredToken         = errors.New("expired token")
-	ErrCannotSendEmail      = errors.New("cannot send email")
+	ErrInvalidToken    = errors.New("invalid token")
+	ErrExpiredToken    = errors.New("expired token")
+	ErrCannotSendEmail = errors.New("cannot send email")
+	ErrUnknownEmail    = errors.New("unknown email")
 
-	activationTemplate    = getActivationTemplate()
-	activationCallbackUrl = getActivationCallbackUrl()
+	passwordResetTemplate    = getPasswordResetTemplate()
+	passwordResetCallbackUrl = getPasswordResetCallbackUrl()
 )
 
-type activationEmailData struct {
+type passwordResetEmailData struct {
 	Url string
 }
 
-func SendActivationEmail(userId int32) error {
+func SendPasswordResetEmail(userEmail string) error {
 	var user model.User
 	result := database.Instance().
 		Model(&model.User{}).
-		Where("id = ?", userId).
+		Where("email = ?", userEmail).
 		First(&user)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return ErrUserNotFound
+			return ErrUnknownEmail
 		}
 		return result.Error
 	}
 
-	if user.IsActivated {
-		return ErrUserAlreadyActivated
-	}
-
-	token, err := token.CreateToken(userId, token.Activation)
+	token, err := token.CreateToken(user.ID, token.PasswordReset)
 	if err != nil {
 		return err
 	}
 
-	url := activationCallbackUrl
+	url := passwordResetCallbackUrl
 	q := url.Query()
-	q.Set("user_id", strconv.Itoa(int(userId)))
+	q.Set("user_id", strconv.Itoa(int(user.ID)))
 	q.Set("token", token)
 	url.RawQuery = q.Encode()
 
 	content, err := utils.CreateHtml(
-		activationTemplate,
-		activationEmailData{Url: url.String()},
+		passwordResetTemplate,
+		passwordResetEmailData{Url: url.String()},
 	)
 	if err != nil {
 		return err
 	}
 
-	err = email.Send(*user.Email, "Confirm your email", content)
+	err = email.Send(userEmail, "Reset your password", content)
 	if err != nil {
 		return ErrCannotSendEmail
 	}
@@ -97,13 +93,13 @@ func SendActivationEmail(userId int32) error {
 	return nil
 }
 
-func ActivateAccount(userId int32, activationCode string) error {
+func ResetPassword(userId int32, resetToken string, newPassword string) error {
 	var t model.Token
 	result := database.Instance().
 		Select("token.*").
 		Model(&model.User{}).
 		Joins("INNER JOIN token ON user.id = token.user_id").
-		Where("user.id = ? AND token.purpose = ?", userId, token.Activation.String()).
+		Where("user.id = ? AND token.purpose = ?", userId, token.PasswordReset.String()).
 		First(&t)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -112,7 +108,7 @@ func ActivateAccount(userId int32, activationCode string) error {
 		return result.Error
 	}
 
-	if token.VerifyHash(activationCode, t.TokenHash) {
+	if !token.VerifyHash(resetToken, t.TokenHash) {
 		return ErrInvalidToken
 	}
 
@@ -120,15 +116,9 @@ func ActivateAccount(userId int32, activationCode string) error {
 		return ErrExpiredToken
 	}
 
-	result = database.Instance().
-		Model(&model.User{}).
-		Where("id = ?", userId).
-		Update("is_activated", true)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return errors.New("cannot update, something went wrong")
+	err := user.UpdatePassword(userId, newPassword)
+	if err != nil {
+		return errors.New("cannot update password, something went wrong")
 	}
 
 	result = database.Instance().

@@ -1,4 +1,4 @@
-package utils
+package env
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func LoadEnv() {
+func init() {
 	env := os.Getenv("APP_ENV")
 
 	if env != "" {
@@ -18,5 +18,5 @@ func LoadEnv() {
 	}
 
 	godotenv.Load(".env.local")
-	godotenv.Load() // .env
+	godotenv.Load(".env")
 }

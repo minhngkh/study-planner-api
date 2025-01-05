@@ -13,12 +13,6 @@ const (
 	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
-// Defines values for ActivationErrorType.
-const (
-	ActivationErrorTypeExpiredToken ActivationErrorType = "ExpiredToken"
-	ActivationErrorTypeInvalidToken ActivationErrorType = "InvalidToken"
-)
-
 // Defines values for RegisterErrorType.
 const (
 	DuplicateEmail  RegisterErrorType = "DuplicateEmail"
@@ -26,11 +20,10 @@ const (
 	InvalidPassword RegisterErrorType = "InvalidPassword"
 )
 
-// Defines values for ResetPasswordErrorType.
+// Defines values for TokenErrorType.
 const (
-	ResetPasswordErrorTypeExpiredToken    ResetPasswordErrorType = "ExpiredToken"
-	ResetPasswordErrorTypeInvalidPassword ResetPasswordErrorType = "InvalidPassword"
-	ResetPasswordErrorTypeInvalidToken    ResetPasswordErrorType = "InvalidToken"
+	ExpiredToken TokenErrorType = "ExpiredToken"
+	InvalidToken TokenErrorType = "InvalidToken"
 )
 
 // Defines values for GetTasksParamsSortBy.
@@ -46,15 +39,6 @@ const (
 	Asc  GetTasksParamsSortOrder = "asc"
 	Desc GetTasksParamsSortOrder = "desc"
 )
-
-// ActivationError defines model for ActivationError.
-type ActivationError struct {
-	Message *string              `json:"message,omitempty"`
-	Type    *ActivationErrorType `json:"type,omitempty"`
-}
-
-// ActivationErrorType defines model for ActivationError.Type.
-type ActivationErrorType string
 
 // AuthTokens defines model for AuthTokens.
 type AuthTokens struct {
@@ -162,15 +146,6 @@ type RegisterError struct {
 // RegisterErrorType defines model for RegisterError.Type.
 type RegisterErrorType string
 
-// ResetPasswordError defines model for ResetPasswordError.
-type ResetPasswordError struct {
-	Message *string                 `json:"message,omitempty"`
-	Type    *ResetPasswordErrorType `json:"type,omitempty"`
-}
-
-// ResetPasswordErrorType defines model for ResetPasswordError.Type.
-type ResetPasswordErrorType string
-
 // Task defines model for Task.
 type Task struct {
 	CreatedAt   *time.Time `json:"created_at,omitempty"`
@@ -193,6 +168,15 @@ type TaskPriority = string
 
 // TaskStatus defines model for TaskStatus.
 type TaskStatus = string
+
+// TokenError defines model for TokenError.
+type TokenError struct {
+	Message *string         `json:"message,omitempty"`
+	Type    *TokenErrorType `json:"type,omitempty"`
+}
+
+// TokenErrorType defines model for TokenError.Type.
+type TokenErrorType string
 
 // UpdateTaskRequest defines model for UpdateTaskRequest.
 type UpdateTaskRequest struct {
@@ -262,6 +246,9 @@ type PostAuthPasswordResetConfirmJSONBody struct {
 
 	// Token Reset token received via email
 	Token string `json:"token"`
+
+	// UserId User ID
+	UserId int32 `json:"user_id"`
 }
 
 // PostAuthRefreshTokenJSONBody defines parameters for PostAuthRefreshToken.

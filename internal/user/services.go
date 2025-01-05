@@ -69,3 +69,20 @@ func GetUserInfoByGoogleID(googleID string) (UserInfo, error) {
 
 	return info, nil
 }
+
+func UpdatePassword(id int32, newPassword string) error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	result := db.Instance().
+		Model(&model.User{ID: id}).
+		Where("id = ?", id).
+		Update("password", string(hashedPassword))
+	if result.Error != nil {
+		return result.Error
+	}
+
+	return nil
+}
