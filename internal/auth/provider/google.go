@@ -132,9 +132,11 @@ func ValidateGoogleAccount(googleInfo GoogleUserInfo) (int32, error) {
 
 func linkGoogleAccount(googleInfo GoogleUserInfo) (int32, error) {
 	user := model.User{
-		GoogleID: &googleInfo.ID,
+		GoogleID:    &googleInfo.ID,
+		IsActivated: true,
 	}
 
+	// TODO: doing upsert in one query instead
 	var users []model.User
 	result := db.Instance().
 		Model(&users).

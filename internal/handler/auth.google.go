@@ -66,7 +66,12 @@ func (s *Handler) GetAuthGoogleCallback(ctx context.Context, request api.GetAuth
 		return nil, errors.Join(err, errors.New("failed to validate google account"))
 	}
 
-	accessToken, refreshToken, err := token.CreateAuthTokens(token.AuthInfo{UserID: userID})
+	accessToken, refreshToken, err := token.CreateAuthTokens(
+		token.AuthInfo{
+			UserID:      userID,
+			IsActivated: true,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
