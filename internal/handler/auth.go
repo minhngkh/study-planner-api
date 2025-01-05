@@ -33,7 +33,12 @@ func (s *Handler) PostRegister(
 		return nil, err
 	}
 
-	accessToken, refreshToken, err := token.CreateAuthTokens(token.AuthInfo{UserID: userId})
+	accessToken, refreshToken, err := token.CreateAuthTokens(
+		token.AuthInfo{
+			UserID:      userId,
+			IsActivated: false,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +76,12 @@ func (s *Handler) PostLogin(
 		}
 	}
 
-	accessToken, refreshToken, err := token.CreateAuthTokens(token.AuthInfo{UserID: user.ID})
+	accessToken, refreshToken, err := token.CreateAuthTokens(
+		token.AuthInfo{
+			UserID:      user.ID,
+			IsActivated: user.IsActivated,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +148,8 @@ func (s *Handler) PostAuthRefreshToken(
 	}
 
 	newAccessToken, newRefreshToken, err := token.CreateAuthTokens(token.AuthInfo{
-		UserID: info.UserID,
+		UserID:      info.UserID,
+		IsActivated: info.IsActivated,
 	})
 	if err != nil {
 		return nil, err

@@ -14,7 +14,8 @@ import (
 )
 
 type AuthInfo struct {
-	UserID int32 `json:"user_id"`
+	UserID      int32 `json:"user_id"`
+	IsActivated bool  `json:"is_activated"`
 }
 
 type RefreshInfo = AuthInfo

@@ -120,6 +120,10 @@ func NewEchoHandler() *echo.Echo {
 					return errors.New("invalid token")
 				}
 
+				if !info.IsActivated {
+					return errors.New("user is not activated")
+				}
+
 				log.Debug().Interface("auth_info", info).Msg("validation")
 				// log.Debug().Interface("cookie", req.Cookies()).Msg("cookie")
 				// echoCtx := oapiEchoMiddleware.GetEchoContext(ctx)
