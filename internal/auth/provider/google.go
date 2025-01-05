@@ -22,7 +22,7 @@ import (
 )
 
 func redirectUrl() string {
-	return fmt.Sprintf("%s/auth/google/callback", utils.GetServerHost())
+	return fmt.Sprintf("%s/auth/google/callback", utils.ServerHost())
 }
 
 var (

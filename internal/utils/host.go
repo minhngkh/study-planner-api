@@ -6,8 +6,8 @@ import (
 	"os"
 )
 
-func GetServerHost() *url.URL {
-	if os.Getenv("ENV") == "development" {
+func ServerHost() *url.URL {
+	if os.Getenv("APP_ENV") == "local" {
 		var u url.URL
 		u.Scheme = "http"
 		u.Host = fmt.Sprintf("localhost:%s", os.Getenv("PORT"))

@@ -3,6 +3,9 @@ package user
 import (
 	"errors"
 	"html/template"
+	"net/url"
+	"os"
+	"path/filepath"
 	"study-planner-api/internal/auth/token"
 	"study-planner-api/internal/database"
 	"study-planner-api/internal/model"
@@ -13,6 +16,27 @@ import (
 	"gorm.io/gorm"
 )
 
+func getActivationTemplate() *template.Template {
+	curDir := utils.CurrentFileDir()
+	path := filepath.Join(curDir, "activation.template.html")
+
+	tmpl, err := template.ParseFiles(path)
+	if err != nil {
+		panic(err)
+	}
+
+	return tmpl
+}
+
+func getActivationCallbackUrl() *url.URL {
+	url, err := url.Parse(os.Getenv("ACTIVATION_CALLBACK_URL"))
+	if err != nil {
+		panic(err)
+	}
+
+	return url
+}
+
 var (
 	ErrUserAlreadyActivated = errors.New("user already activated")
 	ErrUserNotFound         = errors.New("user not found")
@@ -20,11 +44,12 @@ var (
 	ErrExpiredToken         = errors.New("expired token")
 	ErrCannotSendEmail      = errors.New("cannot send email")
 
-	activationTemplate = template.Must(template.ParseFiles("activation.template.html"))
+	activationTemplate    = getActivationTemplate()
+	activationCallbackUrl = getActivationCallbackUrl()
 )
 
 type activationEmailData struct {
-	url string
+	Url string
 }
 
 func SendActivationEmail(userId int32) error {
@@ -49,7 +74,7 @@ func SendActivationEmail(userId int32) error {
 		return err
 	}
 
-	url := utils.GetServerHost()
+	url := activationCallbackUrl
 	q := url.Query()
 	q.Set("user_id", string(userId))
 	q.Set("token", token)
@@ -57,7 +82,7 @@ func SendActivationEmail(userId int32) error {
 
 	content, err := utils.CreateHtml(
 		activationTemplate,
-		activationEmailData{url: url.String()},
+		activationEmailData{Url: url.String()},
 	)
 	if err != nil {
 		return err
@@ -92,6 +117,28 @@ func ActivateAccount(userId int32, activationCode string) error {
 
 	if t.ExpiresAt.Before(time.Now()) {
 		return ErrExpiredToken
+	}
+
+	result = database.Instance().
+		Model(&model.User{}).
+		Where("id = ?", userId).
+		Update("is_activated", true)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("cannot update, something went wrong")
+	}
+
+	result = database.Instance().
+		Model(&model.Token{}).
+		Where("id = ?", t.ID).
+		Delete(&model.Token{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("cannot update, something went wrong")
 	}
 
 	return nil

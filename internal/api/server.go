@@ -45,7 +45,7 @@ func NewEchoHandler() *echo.Echo {
 	e.Use(echoMiddleware.Recover())
 
 	var allowOrigins []string
-	if os.Getenv("ENV") == "TEST" {
+	if os.Getenv("ALLOW_ALL") == "true" {
 		allowOrigins = []string{"*"}
 	} else {
 		allowOrigins = strings.Split(os.Getenv("ALLOW_ORIGINS"), " ")
