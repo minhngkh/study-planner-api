@@ -1,7 +1,9 @@
 package token
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"os"
@@ -19,8 +21,8 @@ type AuthInfo struct {
 type RefreshInfo = AuthInfo
 
 var (
-	signingKey    = []byte(os.Getenv("JWT_SIGNING_KEY"))
-	encryptionKey = []byte(os.Getenv("JWT_ENCRYPTION_KEY"))
+	signingKey    = []byte(os.Getenv("SIGNING_KEY"))
+	encryptionKey = []byte(os.Getenv("ENCRYPTION_KEY"))
 )
 
 const (
@@ -37,6 +39,17 @@ func GenerateRandomToken(length int) (string, error) {
 	}
 
 	return hex.EncodeToString(bytes), nil
+}
+
+func HashToken(token string) string {
+	h := hmac.New(sha256.New, signingKey)
+	h.Write([]byte(token))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func VerifyHash(token, hash string) bool {
+	expectedHash := HashToken(token)
+	return hmac.Equal([]byte(expectedHash), []byte(hash))
 }
 
 // Creates an access token

@@ -13,11 +13,24 @@ const (
 	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
+// Defines values for ActivationErrorType.
+const (
+	ActivationErrorTypeExpiredToken ActivationErrorType = "ExpiredToken"
+	ActivationErrorTypeInvalidToken ActivationErrorType = "InvalidToken"
+)
+
 // Defines values for RegisterErrorType.
 const (
 	DuplicateEmail  RegisterErrorType = "DuplicateEmail"
 	InvalidEmail    RegisterErrorType = "InvalidEmail"
 	InvalidPassword RegisterErrorType = "InvalidPassword"
+)
+
+// Defines values for ResetPasswordErrorType.
+const (
+	ResetPasswordErrorTypeExpiredToken    ResetPasswordErrorType = "ExpiredToken"
+	ResetPasswordErrorTypeInvalidPassword ResetPasswordErrorType = "InvalidPassword"
+	ResetPasswordErrorTypeInvalidToken    ResetPasswordErrorType = "InvalidToken"
 )
 
 // Defines values for GetTasksParamsSortBy.
@@ -33,6 +46,15 @@ const (
 	Asc  GetTasksParamsSortOrder = "asc"
 	Desc GetTasksParamsSortOrder = "desc"
 )
+
+// ActivationError defines model for ActivationError.
+type ActivationError struct {
+	Message *string              `json:"message,omitempty"`
+	Type    *ActivationErrorType `json:"type,omitempty"`
+}
+
+// ActivationErrorType defines model for ActivationError.Type.
+type ActivationErrorType string
 
 // AuthTokens defines model for AuthTokens.
 type AuthTokens struct {
@@ -140,6 +162,15 @@ type RegisterError struct {
 // RegisterErrorType defines model for RegisterError.Type.
 type RegisterErrorType string
 
+// ResetPasswordError defines model for ResetPasswordError.
+type ResetPasswordError struct {
+	Message *string                 `json:"message,omitempty"`
+	Type    *ResetPasswordErrorType `json:"type,omitempty"`
+}
+
+// ResetPasswordErrorType defines model for ResetPasswordError.Type.
+type ResetPasswordErrorType string
+
 // Task defines model for Task.
 type Task struct {
 	CreatedAt   *time.Time `json:"created_at,omitempty"`
@@ -181,6 +212,9 @@ type User struct {
 	CreatedAt *time.Time `json:"created_at,omitempty"`
 	Email     *string    `json:"email,omitempty"`
 	ID        *int32     `json:"id,omitempty"`
+
+	// IsActivated Whether the user's email is activated
+	IsActivated *bool `json:"is_activated,omitempty"`
 }
 
 // LimitParam defines model for LimitParam.
@@ -191,6 +225,15 @@ type PageParam = int
 
 // Forbidden defines model for Forbidden.
 type Forbidden = DefaultResponse
+
+// PostActivationJSONBody defines parameters for PostActivation.
+type PostActivationJSONBody struct {
+	// Token Activation token sent via email
+	Token string `json:"token"`
+
+	// UserId User ID
+	UserId int32 `json:"user_id"`
+}
 
 // GetAnalyticsFocusParams defines parameters for GetAnalyticsFocus.
 type GetAnalyticsFocusParams struct {
@@ -205,6 +248,20 @@ type GetAuthGoogleCallbackParams struct {
 
 	// State State parameter for CSRF protection
 	State string `form:"state" json:"state"`
+}
+
+// PostAuthPasswordResetJSONBody defines parameters for PostAuthPasswordReset.
+type PostAuthPasswordResetJSONBody struct {
+	Email string `json:"email"`
+}
+
+// PostAuthPasswordResetConfirmJSONBody defines parameters for PostAuthPasswordResetConfirm.
+type PostAuthPasswordResetConfirmJSONBody struct {
+	// NewPassword New password to set
+	NewPassword string `json:"new_password"`
+
+	// Token Reset token received via email
+	Token string `json:"token"`
 }
 
 // PostAuthRefreshTokenJSONBody defines parameters for PostAuthRefreshToken.
@@ -276,6 +333,15 @@ type GetTasksParamsSortBy string
 
 // GetTasksParamsSortOrder defines parameters for GetTasks.
 type GetTasksParamsSortOrder string
+
+// PostActivationJSONRequestBody defines body for PostActivation for application/json ContentType.
+type PostActivationJSONRequestBody PostActivationJSONBody
+
+// PostAuthPasswordResetJSONRequestBody defines body for PostAuthPasswordReset for application/json ContentType.
+type PostAuthPasswordResetJSONRequestBody PostAuthPasswordResetJSONBody
+
+// PostAuthPasswordResetConfirmJSONRequestBody defines body for PostAuthPasswordResetConfirm for application/json ContentType.
+type PostAuthPasswordResetConfirmJSONRequestBody PostAuthPasswordResetConfirmJSONBody
 
 // PostAuthRefreshTokenJSONRequestBody defines body for PostAuthRefreshToken for application/json ContentType.
 type PostAuthRefreshTokenJSONRequestBody PostAuthRefreshTokenJSONBody

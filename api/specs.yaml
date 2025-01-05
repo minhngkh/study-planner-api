@@ -34,7 +34,7 @@ paths:
                 password:
                   type: string
       responses:
-        '200':
+        "200":
           description: login response
           headers:
             Set-Cookie:
@@ -44,8 +44,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthTokens'
-        '400':
+                $ref: "#/components/schemas/AuthTokens"
+        "400":
           description: Invalid email/password supplied
   /register:
     post:
@@ -68,21 +68,126 @@ paths:
                 - email
                 - password
       responses:
-        '201':
+        "201":
           description: registration successful
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthTokens'
-        '400':
+                $ref: "#/components/schemas/AuthTokens"
+        "400":
           description: Registration validation errors
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RegisterError'
+                $ref: "#/components/schemas/RegisterError"
               example:
                 type: DuplicateEmail
                 message: Email already exists
+  /activation/email:
+    post:
+      tags:
+        - auth
+      summary: Send activation email
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Activation email sent successfully
+        '400':
+          description: Email already activated or too many requests
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /activation/:
+    post:
+      tags:
+        - auth
+      summary: Activate user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - token
+              properties:
+                user_id:
+                  type: integer
+                  x-go-type: int32
+                  description: User ID
+                token:
+                  type: string
+                  description: Activation token sent via email
+      responses:
+        '200':
+          description: Account activated successfully
+        '400':
+          description: Invalid or expired activation token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivationError'
+              example:
+                type: ExpiredToken
+
+  /auth/password-reset:
+    post:
+      tags:
+        - auth
+      summary: Request password reset email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+      responses:
+        '200':
+          description: Password reset email sent successfully
+        '400':
+          description: Invalid email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefaultResponse'
+  /auth/password-reset/confirm:
+    post:
+      tags:
+        - auth
+      summary: Reset password using token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - new_password
+              properties:
+                token:
+                  type: string
+                  description: Reset token received via email
+                new_password:
+                  type: string
+                  description: New password to set
+      responses:
+        '200':
+          description: Password reset successful
+        '400':
+          description: Invalid/expired token or password validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetPasswordError'
+              example:
+                type: ExpiredToken
   /profile:
     get:
       tags:
@@ -91,14 +196,14 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: User profile information
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                $ref: "#/components/schemas/User"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /auth/refresh-token:
     post:
       tags:
@@ -124,7 +229,7 @@ paths:
             type: string
           description: Refresh token stored in cookie
       responses:
-        '200':
+        "200":
           description: New tokens generated successfully
           headers:
             Set-Cookie:
@@ -134,8 +239,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthTokens'
-        '403':
+                $ref: "#/components/schemas/AuthTokens"
+        "403":
           description: Invalid or expired refresh token
   /logout:
     post:
@@ -162,14 +267,14 @@ paths:
             type: string
           description: Refresh token stored in cookie
       responses:
-        '200':
+        "200":
           description: Successfully logged out
           headers:
             Set-Cookie:
               schema:
                 type: string
               description: Delete refresh token cookie
-        '403':
+        "403":
           description: Invalid or expired refresh token
           headers:
             Set-Cookie:
@@ -184,8 +289,8 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/PageParam'
-        - $ref: '#/components/parameters/LimitParam'
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
         - name: search
           in: query
           required: false
@@ -196,13 +301,13 @@ paths:
           in: query
           required: false
           schema:
-            $ref: '#/components/schemas/TaskStatus'
+            $ref: "#/components/schemas/TaskStatus"
           description: Filter tasks by status
         - name: priority
           in: query
           required: false
           schema:
-            $ref: '#/components/schemas/TaskPriority'
+            $ref: "#/components/schemas/TaskPriority"
           description: Filter tasks by priority
         - name: start_date
           in: query
@@ -235,7 +340,7 @@ paths:
             default: desc
           description: Sort order
       responses:
-        '200':
+        "200":
           description: List of tasks with pagination metadata
           content:
             application/json:
@@ -245,13 +350,13 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Task'
+                      $ref: "#/components/schemas/Task"
                   pagination:
-                    $ref: '#/components/schemas/PaginationResponse'
-        '400':
+                    $ref: "#/components/schemas/PaginationResponse"
+        "400":
           description: Invalid input
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "403":
+          $ref: "#/components/responses/Forbidden"
     post:
       tags:
         - tasks
@@ -263,22 +368,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateTaskRequest'
+              $ref: "#/components/schemas/CreateTaskRequest"
       responses:
-        '201':
+        "201":
           description: Task created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Task'
-        '400':
+                $ref: "#/components/schemas/Task"
+        "400":
           description: Invalid input
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DefaultResponse'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                $ref: "#/components/schemas/DefaultResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /tasks/{id}:
     put:
       tags:
@@ -298,18 +403,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateTaskRequest'
+              $ref: "#/components/schemas/UpdateTaskRequest"
       responses:
-        '200':
+        "200":
           description: Task updated successfully
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
           description: Task not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DefaultResponse'
+                $ref: "#/components/schemas/DefaultResponse"
     delete:
       tags:
         - tasks
@@ -324,16 +429,16 @@ paths:
             type: integer
             x-go-type: int32
       responses:
-        '204':
+        "204":
           description: Task deleted successfully
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
           description: Task not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DefaultResponse'
+                $ref: "#/components/schemas/DefaultResponse"
   /auth/google/authorize:
     get:
       tags:
@@ -341,7 +446,7 @@ paths:
       summary: Initiate Google OAuth2 login flow
       description: Redirects the user to Google's login page
       responses:
-        '303':
+        "303":
           description: Redirect to Google login page
           headers:
             Set-Cookie:
@@ -372,14 +477,14 @@ paths:
             type: string
           description: State parameter for CSRF protection
       responses:
-        '200':
+        "200":
           description: User logged in successfully
           content:
             text/html:
               schema:
                 type: string
                 example: Authenticated with Google successfully
-        '301':
+        "301":
           description: Redirect to frontend with auth tokens in URL
           headers:
             Location:
@@ -387,13 +492,13 @@ paths:
                 type: string
                 example: https://website.com#access_token=...&refresh_token=...
               description: Frontend URL with auth tokens
-              
-        '400':
+
+        "400":
           description: Invalid authorization code or state mismatch
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DefaultResponse'
+                $ref: "#/components/schemas/DefaultResponse"
   /focus-sessions:
     post:
       tags:
@@ -406,21 +511,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateFocusSessionRequest'
+              $ref: "#/components/schemas/CreateFocusSessionRequest"
       responses:
-        '201':
+        "201":
           description: Focus session created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FocusSession'
-        '400':
+                $ref: "#/components/schemas/FocusSession"
+        "400":
           description: Invalid input or task not in progress
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
           description: Task not found or task not belong to user
-
   /focus-sessions/{id}/end:
     post:
       tags:
@@ -441,21 +545,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/EndFocusSessionRequest'
+              $ref: "#/components/schemas/EndFocusSessionRequest"
       responses:
-        '200':
+        "200":
           description: Focus session ended successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FocusSession'
-        '400':
+                $ref: "#/components/schemas/FocusSession"
+        "400":
           description: Invalid input or session is not active
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
           description: Session not found or not belong to user
-
   /analytics/focus:
     get:
       tags:
@@ -477,14 +580,14 @@ paths:
             type: string
             format: date
       responses:
-        '200':
+        "200":
           description: Focus session analytics
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FocusAnalytics'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                $ref: "#/components/schemas/FocusAnalytics"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 components:
   securitySchemes:
     bearerAuth:
@@ -501,19 +604,19 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/DefaultResponse'
+            $ref: "#/components/schemas/DefaultResponse"
     Unauthorized:
       description: Access token is missing or invalid
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/DefaultResponse'
+            $ref: "#/components/schemas/DefaultResponse"
     Forbidden:
       description: Access token is missing or invalid
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/DefaultResponse'
+            $ref: "#/components/schemas/DefaultResponse"
   parameters:
     PageParam:
       name: page
@@ -552,10 +655,31 @@ components:
       properties:
         type:
           type: string
-          enum: 
+          enum:
             - DuplicateEmail
             - InvalidEmail
             - InvalidPassword
+        message:
+          type: string
+    ResetPasswordError:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - InvalidToken
+            - ExpiredToken
+            - InvalidPassword
+        message:
+          type: string
+    ActivationError:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - InvalidToken
+            - ExpiredToken
         message:
           type: string
     User:
@@ -570,6 +694,9 @@ components:
         created_at:
           type: string
           format: date-time
+        is_activated:
+          type: boolean
+          description: Whether the user's email is activated
     TaskPriority:
       type: string
       enum: ["High", "Medium", "Low"]
@@ -592,13 +719,13 @@ components:
         description:
           type: string
         priority:
-          $ref: '#/components/schemas/TaskPriority'
+          $ref: "#/components/schemas/TaskPriority"
         estimated_time:
           type: integer
           x-go-type: int32
           description: Estimated time in minutes
         status:
-          $ref: '#/components/schemas/TaskStatus'
+          $ref: "#/components/schemas/TaskStatus"
         start_time:
           type: string
           format: date-time
@@ -623,13 +750,13 @@ components:
         description:
           type: string
         priority:
-          $ref: '#/components/schemas/TaskPriority'
+          $ref: "#/components/schemas/TaskPriority"
         estimated_time:
           type: integer
           x-go-type: int32
           description: Estimated time in minutes
         status:
-          $ref: '#/components/schemas/TaskStatus'
+          $ref: "#/components/schemas/TaskStatus"
         start_time:
           type: string
           format: date-time
@@ -644,13 +771,13 @@ components:
         description:
           type: string
         priority:
-          $ref: '#/components/schemas/TaskPriority'
+          $ref: "#/components/schemas/TaskPriority"
         estimated_time:
           type: integer
           x-go-type: int32
           description: Estimated time in minutes
         status:
-          $ref: '#/components/schemas/TaskStatus'
+          $ref: "#/components/schemas/TaskStatus"
         start_time:
           type: string
           format: date-time
@@ -698,7 +825,7 @@ components:
           description: Break duration in seconds
           x-go-type: int32
         status:
-          $ref: '#/components/schemas/FocusSessionStatus'
+          $ref: "#/components/schemas/FocusSessionStatus"
         focus_duration:
           type: integer
           description: Elapsed focus duration in seconds

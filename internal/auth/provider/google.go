@@ -12,6 +12,7 @@ import (
 	"study-planner-api/internal/auth/token"
 	db "study-planner-api/internal/database"
 	"study-planner-api/internal/model"
+	"study-planner-api/internal/utils"
 
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/rs/zerolog/log"
@@ -22,10 +23,7 @@ import (
 )
 
 func redirectUrl() string {
-	if os.Getenv("ENV") == "development" {
-		return fmt.Sprintf("http://localhost:%s/auth/google/callback", os.Getenv("PORT"))
-	}
-	return fmt.Sprintf("%s/auth/google/callback", os.Getenv("DEPLOYMENT_URL"))
+	return fmt.Sprintf("%s/auth/google/callback", utils.GetServerHost())
 }
 
 var (

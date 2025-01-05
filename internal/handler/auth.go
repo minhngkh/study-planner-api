@@ -14,6 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// TODO: Add registration data validation
 func (s *Handler) PostRegister(
 	ctx context.Context,
 	request api.PostRegisterRequestObject,

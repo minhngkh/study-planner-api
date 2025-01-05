@@ -24,6 +24,12 @@ import (
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Activate user account
+	// (POST /activation/)
+	PostActivation(ctx echo.Context) error
+	// Send activation email
+	// (POST /activation/email)
+	PostActivationEmail(ctx echo.Context) error
 	// Get focus session analytics
 	// (GET /analytics/focus)
 	GetAnalyticsFocus(ctx echo.Context, params GetAnalyticsFocusParams) error
@@ -33,6 +39,12 @@ type ServerInterface interface {
 	// Handle Google OAuth2 callback
 	// (GET /auth/google/callback)
 	GetAuthGoogleCallback(ctx echo.Context, params GetAuthGoogleCallbackParams) error
+	// Request password reset email
+	// (POST /auth/password-reset)
+	PostAuthPasswordReset(ctx echo.Context) error
+	// Reset password using token
+	// (POST /auth/password-reset/confirm)
+	PostAuthPasswordResetConfirm(ctx echo.Context) error
 	// Get new access and refresh tokens using refresh token
 	// (POST /auth/refresh-token)
 	PostAuthRefreshToken(ctx echo.Context, params PostAuthRefreshTokenParams) error
@@ -71,6 +83,26 @@ type ServerInterface interface {
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// PostActivation converts echo context to params.
+func (w *ServerInterfaceWrapper) PostActivation(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.PostActivation(ctx)
+	return err
+}
+
+// PostActivationEmail converts echo context to params.
+func (w *ServerInterfaceWrapper) PostActivationEmail(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.PostActivationEmail(ctx)
+	return err
 }
 
 // GetAnalyticsFocus converts echo context to params.
@@ -131,6 +163,24 @@ func (w *ServerInterfaceWrapper) GetAuthGoogleCallback(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.GetAuthGoogleCallback(ctx, params)
+	return err
+}
+
+// PostAuthPasswordReset converts echo context to params.
+func (w *ServerInterfaceWrapper) PostAuthPasswordReset(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.PostAuthPasswordReset(ctx)
+	return err
+}
+
+// PostAuthPasswordResetConfirm converts echo context to params.
+func (w *ServerInterfaceWrapper) PostAuthPasswordResetConfirm(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.PostAuthPasswordResetConfirm(ctx)
 	return err
 }
 
@@ -389,9 +439,13 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
+	router.POST(baseURL+"/activation/", wrapper.PostActivation)
+	router.POST(baseURL+"/activation/email", wrapper.PostActivationEmail)
 	router.GET(baseURL+"/analytics/focus", wrapper.GetAnalyticsFocus)
 	router.GET(baseURL+"/auth/google/authorize", wrapper.GetAuthGoogleAuthorize)
 	router.GET(baseURL+"/auth/google/callback", wrapper.GetAuthGoogleCallback)
+	router.POST(baseURL+"/auth/password-reset", wrapper.PostAuthPasswordReset)
+	router.POST(baseURL+"/auth/password-reset/confirm", wrapper.PostAuthPasswordResetConfirm)
 	router.POST(baseURL+"/auth/refresh-token", wrapper.PostAuthRefreshToken)
 	router.POST(baseURL+"/focus-sessions", wrapper.PostFocusSessions)
 	router.POST(baseURL+"/focus-sessions/:id/end", wrapper.PostFocusSessionsIdEnd)
@@ -407,6 +461,63 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 }
 
 type ForbiddenJSONResponse DefaultResponse
+
+type PostActivationRequestObject struct {
+	Body *PostActivationJSONRequestBody
+}
+
+type PostActivationResponseObject interface {
+	VisitPostActivationResponse(w http.ResponseWriter) error
+}
+
+type PostActivation200Response struct {
+}
+
+func (response PostActivation200Response) VisitPostActivationResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type PostActivation400JSONResponse ActivationError
+
+func (response PostActivation400JSONResponse) VisitPostActivationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PostActivationEmailRequestObject struct {
+}
+
+type PostActivationEmailResponseObject interface {
+	VisitPostActivationEmailResponse(w http.ResponseWriter) error
+}
+
+type PostActivationEmail200Response struct {
+}
+
+func (response PostActivationEmail200Response) VisitPostActivationEmailResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type PostActivationEmail400Response struct {
+}
+
+func (response PostActivationEmail400Response) VisitPostActivationEmailResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type PostActivationEmail403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostActivationEmail403JSONResponse) VisitPostActivationEmailResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
 
 type GetAnalyticsFocusRequestObject struct {
 	Params GetAnalyticsFocusParams
@@ -501,6 +612,56 @@ func (response GetAuthGoogleCallback301Response) VisitGetAuthGoogleCallbackRespo
 type GetAuthGoogleCallback400JSONResponse DefaultResponse
 
 func (response GetAuthGoogleCallback400JSONResponse) VisitGetAuthGoogleCallbackResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PostAuthPasswordResetRequestObject struct {
+	Body *PostAuthPasswordResetJSONRequestBody
+}
+
+type PostAuthPasswordResetResponseObject interface {
+	VisitPostAuthPasswordResetResponse(w http.ResponseWriter) error
+}
+
+type PostAuthPasswordReset200Response struct {
+}
+
+func (response PostAuthPasswordReset200Response) VisitPostAuthPasswordResetResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type PostAuthPasswordReset400JSONResponse DefaultResponse
+
+func (response PostAuthPasswordReset400JSONResponse) VisitPostAuthPasswordResetResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PostAuthPasswordResetConfirmRequestObject struct {
+	Body *PostAuthPasswordResetConfirmJSONRequestBody
+}
+
+type PostAuthPasswordResetConfirmResponseObject interface {
+	VisitPostAuthPasswordResetConfirmResponse(w http.ResponseWriter) error
+}
+
+type PostAuthPasswordResetConfirm200Response struct {
+}
+
+func (response PostAuthPasswordResetConfirm200Response) VisitPostAuthPasswordResetConfirmResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type PostAuthPasswordResetConfirm400JSONResponse ResetPasswordError
+
+func (response PostAuthPasswordResetConfirm400JSONResponse) VisitPostAuthPasswordResetConfirmResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
@@ -890,6 +1051,12 @@ func (response PutTasksId404JSONResponse) VisitPutTasksIdResponse(w http.Respons
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Activate user account
+	// (POST /activation/)
+	PostActivation(ctx context.Context, request PostActivationRequestObject) (PostActivationResponseObject, error)
+	// Send activation email
+	// (POST /activation/email)
+	PostActivationEmail(ctx context.Context, request PostActivationEmailRequestObject) (PostActivationEmailResponseObject, error)
 	// Get focus session analytics
 	// (GET /analytics/focus)
 	GetAnalyticsFocus(ctx context.Context, request GetAnalyticsFocusRequestObject) (GetAnalyticsFocusResponseObject, error)
@@ -899,6 +1066,12 @@ type StrictServerInterface interface {
 	// Handle Google OAuth2 callback
 	// (GET /auth/google/callback)
 	GetAuthGoogleCallback(ctx context.Context, request GetAuthGoogleCallbackRequestObject) (GetAuthGoogleCallbackResponseObject, error)
+	// Request password reset email
+	// (POST /auth/password-reset)
+	PostAuthPasswordReset(ctx context.Context, request PostAuthPasswordResetRequestObject) (PostAuthPasswordResetResponseObject, error)
+	// Reset password using token
+	// (POST /auth/password-reset/confirm)
+	PostAuthPasswordResetConfirm(ctx context.Context, request PostAuthPasswordResetConfirmRequestObject) (PostAuthPasswordResetConfirmResponseObject, error)
 	// Get new access and refresh tokens using refresh token
 	// (POST /auth/refresh-token)
 	PostAuthRefreshToken(ctx context.Context, request PostAuthRefreshTokenRequestObject) (PostAuthRefreshTokenResponseObject, error)
@@ -944,6 +1117,58 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// PostActivation operation middleware
+func (sh *strictHandler) PostActivation(ctx echo.Context) error {
+	var request PostActivationRequestObject
+
+	var body PostActivationJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PostActivation(ctx.Request().Context(), request.(PostActivationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostActivation")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(PostActivationResponseObject); ok {
+		return validResponse.VisitPostActivationResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PostActivationEmail operation middleware
+func (sh *strictHandler) PostActivationEmail(ctx echo.Context) error {
+	var request PostActivationEmailRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PostActivationEmail(ctx.Request().Context(), request.(PostActivationEmailRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostActivationEmail")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(PostActivationEmailResponseObject); ok {
+		return validResponse.VisitPostActivationEmailResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
 }
 
 // GetAnalyticsFocus operation middleware
@@ -1013,6 +1238,64 @@ func (sh *strictHandler) GetAuthGoogleCallback(ctx echo.Context, params GetAuthG
 		return err
 	} else if validResponse, ok := response.(GetAuthGoogleCallbackResponseObject); ok {
 		return validResponse.VisitGetAuthGoogleCallbackResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PostAuthPasswordReset operation middleware
+func (sh *strictHandler) PostAuthPasswordReset(ctx echo.Context) error {
+	var request PostAuthPasswordResetRequestObject
+
+	var body PostAuthPasswordResetJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAuthPasswordReset(ctx.Request().Context(), request.(PostAuthPasswordResetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAuthPasswordReset")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(PostAuthPasswordResetResponseObject); ok {
+		return validResponse.VisitPostAuthPasswordResetResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PostAuthPasswordResetConfirm operation middleware
+func (sh *strictHandler) PostAuthPasswordResetConfirm(ctx echo.Context) error {
+	var request PostAuthPasswordResetConfirmRequestObject
+
+	var body PostAuthPasswordResetConfirmJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAuthPasswordResetConfirm(ctx.Request().Context(), request.(PostAuthPasswordResetConfirmRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAuthPasswordResetConfirm")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(PostAuthPasswordResetConfirmResponseObject); ok {
+		return validResponse.VisitPostAuthPasswordResetConfirmResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
@@ -1335,54 +1618,59 @@ func (sh *strictHandler) PutTasksId(ctx echo.Context, id int32) error {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"djwAAA==",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
