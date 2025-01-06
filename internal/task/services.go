@@ -21,6 +21,10 @@ const (
 	StatusExpired    Status = "Expired"
 )
 
+func (s Status) String() string {
+	return string(s)
+}
+
 func StatusFromString(str string) (Status, error) {
 	switch str {
 	case string(StatusTodo):

@@ -121,7 +121,9 @@ func NewEchoHandler() *echo.Echo {
 				}
 
 				if !info.IsActivated {
-					return errors.New("user is not activated")
+					if ai.RequestValidationInput.Request.URL.Path != "/activation/email" {
+						return errors.New("user is not activated")
+					}
 				}
 
 				log.Debug().Interface("auth_info", info).Msg("validation")

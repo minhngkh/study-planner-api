@@ -19,8 +19,8 @@ import (
 )
 
 func getPasswordResetTemplate() *template.Template {
-	curDir := utils.CurrentFileDir()
-	path := filepath.Join(curDir, "passwordreset.template.html")
+	// curDir := utils.CurrentFileDir()
+	path := filepath.Join("templates", "reset-password.html")
 
 	tmpl, err := template.ParseFiles(path)
 	if err != nil {

@@ -17,6 +17,10 @@ const (
 	StatusEndedEearly Status = "ended_early"
 )
 
+func (s Status) String() string {
+	return string(s)
+}
+
 var (
 	ErrInvalidTimerDuration = errors.New("timer duration must be greater than 0")
 	ErrTaskNotFound         = errors.New("task not found")

@@ -18,8 +18,8 @@ import (
 )
 
 func getActivationTemplate() *template.Template {
-	curDir := utils.CurrentFileDir()
-	path := filepath.Join(curDir, "activation.template.html")
+	// curDir := utils.CurrentFileDir()
+	path := filepath.Join("templates", "account-activation.html")
 
 	tmpl, err := template.ParseFiles(path)
 	if err != nil {

@@ -109,6 +109,7 @@ func (s *Handler) PostLogin(
 		Name:     "refresh_token",
 		Value:    refreshToken.Value,
 		HttpOnly: true,
+		Path:     "/",
 		Expires:  refreshToken.Expiry.Time(),
 	}
 
@@ -167,7 +168,9 @@ func (s *Handler) PostAuthRefreshToken(
 	cookie := http.Cookie{
 		Name:     "refresh_token",
 		Value:    newRefreshToken.Value,
+		Path:     "/",
 		HttpOnly: true,
+		Expires:  newRefreshToken.Expiry.Time(),
 	}
 
 	return api.PostAuthRefreshToken200JSONResponse{
