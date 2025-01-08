@@ -7,7 +7,8 @@ import (
 	"study-planner-api/internal/focussession"
 	"study-planner-api/internal/model"
 	"study-planner-api/internal/task"
-	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 // TODO: move services code to analytics package
@@ -19,6 +20,8 @@ func (s *Handler) GetAnalyticsFocus(ctx context.Context, request api.GetAnalytic
 	startDate := request.Params.StartDate
 	endDate := request.Params.EndDate
 
+	log.Debug().Msgf("User %s requested analytics focus", endDate)
+
 	query := database.Instance().
 		Model(&model.FocusSession{}).
 		Joins("JOIN task ON focus_session.task_id = task.id").
@@ -26,10 +29,10 @@ func (s *Handler) GetAnalyticsFocus(ctx context.Context, request api.GetAnalytic
 		Where("task.user_id = ?", userID).
 		Where("focus_session.status <> ?", focussession.StatusActive.String())
 	if startDate != nil {
-		query = query.Where("focus_session.created_at >= ?", startDate.Time)
+		query = query.Where("DATETIME(focus_session.created_at) >= ?", startDate)
 	}
 	if endDate != nil {
-		query = query.Where("focus_session.created_at <= ?", endDate.Time.Add(time.Hour*24))
+		query = query.Where("DATETIME(focus_session.created_at) <= ?", endDate)
 	}
 
 	var timeStats struct {
@@ -48,9 +51,17 @@ func (s *Handler) GetAnalyticsFocus(ctx context.Context, request api.GetAnalytic
 	}
 	dailyQuery := database.Instance().
 		Model(&model.FocusSession{}).
-		Select("DATE(created_at) as date, COALESCE(SUM(focus_duration), 0) as total").
+		Joins("JOIN task ON focus_session.task_id = task.id").
+		Select("DATE(focus_session.created_at) as date, COALESCE(SUM(focus_session.focus_duration), 0) as total").
 		Where("focus_session.status <> ?", focussession.StatusActive.String()).
-		Group("DATE(created_at)")
+		Where("task.user_id = ?", userID).
+		Group("DATE(focus_session.created_at)")
+	if startDate != nil {
+		dailyQuery = dailyQuery.Where("DATETIME(focus_session.created_at) >= ?", startDate)
+	}
+	if endDate != nil {
+		dailyQuery = dailyQuery.Where("DATETIME(focus_session.created_at) <= ?", endDate)
+	}
 
 	var dailyTimes []DailyTime
 	err = dailyQuery.Scan(&dailyTimes).Error

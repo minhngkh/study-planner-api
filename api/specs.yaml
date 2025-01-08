@@ -596,13 +596,13 @@ paths:
           required: false
           schema:
             type: string
-            format: date
+            format: date-time
         - name: end_date
           in: query
           required: false
           schema:
             type: string
-            format: date
+            format: date-time
       responses:
         "200":
           description: Focus session analytics

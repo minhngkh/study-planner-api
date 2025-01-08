@@ -221,8 +221,8 @@ type PostActivationJSONBody struct {
 
 // GetAnalyticsFocusParams defines parameters for GetAnalyticsFocus.
 type GetAnalyticsFocusParams struct {
-	StartDate *openapi_types.Date `form:"start_date,omitempty" json:"start_date,omitempty"`
-	EndDate   *openapi_types.Date `form:"end_date,omitempty" json:"end_date,omitempty"`
+	StartDate *time.Time `form:"start_date,omitempty" json:"start_date,omitempty"`
+	EndDate   *time.Time `form:"end_date,omitempty" json:"end_date,omitempty"`
 }
 
 // GetAuthGoogleCallbackParams defines parameters for GetAuthGoogleCallback.

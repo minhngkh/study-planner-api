@@ -109,7 +109,9 @@ func (s *Handler) PostLogin(
 		Name:     "refresh_token",
 		Value:    refreshToken.Value,
 		HttpOnly: true,
+		Secure:   true,
 		Path:     "/",
+		SameSite: http.SameSiteNoneMode,
 		Expires:  refreshToken.Expiry.Time(),
 	}
 
@@ -170,6 +172,8 @@ func (s *Handler) PostAuthRefreshToken(
 		Value:    newRefreshToken.Value,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
 		Expires:  newRefreshToken.Expiry.Time(),
 	}
 
